@@ -1,8 +1,5 @@
 (do
 
-  ; load lib
-  (eval (parse (loads "lib.lsp") "lib.lsp") global)
-
 
   (= width 79)
   (= height 24)

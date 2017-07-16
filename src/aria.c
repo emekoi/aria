@@ -1405,13 +1405,28 @@ static ar_Value *f_readline(ar_State *S, ar_Value *args) {
   return ar_new_string(S, fgets(buf, sizeof(buf) - 1, stdin));
 }
 
-
 int main(int argc, char **argv) {
   ar_State *S = ar_new_state(NULL, NULL);
   if (!S) {
     printf("out of memory\n");
     return EXIT_FAILURE;
   }
+
+  /* Embed standard library */
+  #include "core_lsp.h"
+  #include "class_lsp.h"
+  struct {
+    const char *name, *data;
+  } items[] = {
+    {"core.lsp", core_lsp},
+    {"class.lsp", class_lsp},
+    {NULL, NULL}
+  };
+  int i;
+  for (i = 0; items[i].name; i++) {
+    ar_eval(S, ar_parse(S, items[i].data, items[i].name), S->global);
+  }
+
   ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
 
   if (argc < 2) {

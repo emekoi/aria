@@ -1,7 +1,5 @@
 (do
 
-  ; load lib
-  (eval (parse (loads "lib.lsp") "lib.lsp") global)
 
 
   (= eachi (fn (f lst)

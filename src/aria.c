@@ -146,9 +146,9 @@ ar_Value *ar_new_string(ar_State *S, const char *str) {
 ar_Value *ar_new_symbol(ar_State *S, const char *name) {
   ar_Value *v;
   /* Build hash of string */
-  unsigned hash = 5381;
+  unsigned hash = 0;
   const char *p = name;
-  while (*p) hash = ((hash << 5) + hash) ^ *p++;
+  while (*p) hash ^= (hash << 5) + (hash >> 2) + *p++;
   /* Create and init symbol */
   v = ar_new_string(S, name);
   v->type = AR_TSYMBOL;
@@ -981,10 +981,8 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
-static ar_Value *p_cast(ar_State *S, ar_Value *args, ar_Value *env) {
-  ar_Value *res;
-
-  return res;
+static ar_Value *f_tostring(ar_State *S, ar_Value *args, ar_Value *env) {
+  return ar_to_string_value(S, ar_nth(args, 0), 0);
 }
 
 
@@ -1225,6 +1223,8 @@ static void register_builtin(ar_State *S) {
   };
   /* Functions */
   struct { const char *name; ar_CFunc fn; } funcs[] = {
+    { "tostring", f_tostring},
+    { "tonumber", f_tonumber},
     { "list",     f_list    },
     { "type",     f_type    },
     { "print",    f_print   },

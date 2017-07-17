@@ -983,11 +983,7 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 
 static ar_Value *p_cast(ar_State *S, ar_Value *args, ar_Value *env) {
   ar_Value *res;
-  ar_try(S, err, {
-    res = ar_call(S, ar_eval(S, ar_car(args), env), NULL);
-  }, {
-    res = ar_call(S, ar_eval(S, ar_nth(args, 1), env), err);
-  });
+
   return res;
 }
 

@@ -57,6 +57,7 @@ dkms.conf
 
 # Other
 .tempsrc/
+bin/
 *.swp
 *.tmp
 *.pyc

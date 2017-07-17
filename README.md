@@ -20,6 +20,7 @@ A *tiny*, easily embeddable lisp-shaped language implemented in C89.
 * Simple implementation and garbage collector
 * Easy-to-use C API
 
+https://github.com/ceramic/ceramic
 
 ## License
 This library is free software; you can redistribute it and/or modify it under

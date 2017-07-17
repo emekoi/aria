@@ -19,6 +19,7 @@ if platform.system() == "Windows":
   OUTPUT += ".exe"
   LINK += [ "mingw32" ]
   FLAGS += [ "-mwindows" ]
+  sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 # if platform.system() == "Linux":
 

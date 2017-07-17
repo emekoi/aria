@@ -9,4 +9,4 @@
     (join (map capitalize (split s " ")) " ")))
 
 
-  (print (titleize "hello world"))) ; prints "Hello World"
+  (dumps "title.txt" (titleize (readline)))) ; prints "Hello World"

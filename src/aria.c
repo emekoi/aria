@@ -981,6 +981,17 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
+static ar_Value *p_cast(ar_State *S, ar_Value *args, ar_Value *env) {
+  ar_Value *res;
+  ar_try(S, err, {
+    res = ar_call(S, ar_eval(S, ar_car(args), env), NULL);
+  }, {
+    res = ar_call(S, ar_eval(S, ar_nth(args, 1), env), err);
+  });
+  return res;
+}
+
+
 static ar_Value *f_list(ar_State *S, ar_Value *args) {
   UNUSED(S);
   return args;
@@ -1411,6 +1422,8 @@ int main(int argc, char **argv) {
     printf("out of memory\n");
     return EXIT_FAILURE;
   }
+  /* Enable single line buffering */
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
   /* Embed standard library */
   #include "core_lsp.h"
@@ -1420,7 +1433,7 @@ int main(int argc, char **argv) {
   } items[] = {
     { "core.lsp",  core_lsp  },
     { "class.lsp", class_lsp },
-    { NULL, NULL };
+    { NULL, NULL }
   };
   int i;
   for (i = 0; items[i].name; i++) {
@@ -1428,7 +1441,6 @@ int main(int argc, char **argv) {
   }
 
   ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
-
   if (argc < 2) {
     /* Init REPL */
     printf("aria " AR_VERSION "\n");

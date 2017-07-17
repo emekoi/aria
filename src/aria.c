@@ -1418,9 +1418,9 @@ int main(int argc, char **argv) {
   struct {
     const char *name, *data;
   } items[] = {
-    {"core.lsp", core_lsp},
-    {"class.lsp", class_lsp},
-    {NULL, NULL}
+    { "core.lsp",  core_lsp  },
+    { "class.lsp", class_lsp },
+    { NULL, NULL };
   };
   int i;
   for (i = 0; items[i].name; i++) {

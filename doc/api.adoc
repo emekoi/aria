@@ -1,0 +1,36 @@
+= Aria API
+
+---
+### core
+---
+##### primitives
+  - `=`
+  - `do`
+  - `quote`
+  - `eval`
+  - `fn`
+  - `macro`
+  - `apply`
+  - `if`
+  - `and`
+  - `or`
+  - `let`
+  - `while`
+  - `pcall`
+
+#### functions
+  - `caar`
+  - `cadr`
+  - `cddr`
+  - `cdar`
+  - `dostring`
+  - `dofile`
+  - `not`
+  - `isnt`
+  - `isa`
+  - `when`
+  - `unless`
+  - `whenlet`
+  - `default`
+  - `assert`
+  - `gensym`

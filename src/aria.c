@@ -981,11 +981,6 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
-static ar_Value *f_tostring(ar_State *S, ar_Value *args, ar_Value *env) {
-  return ar_to_string_value(S, ar_nth(args, 0), 0);
-}
-
-
 static ar_Value *f_list(ar_State *S, ar_Value *args) {
   UNUSED(S);
   return args;
@@ -994,6 +989,16 @@ static ar_Value *f_list(ar_State *S, ar_Value *args) {
 
 static ar_Value *f_type(ar_State *S, ar_Value *args) {
   return ar_new_symbol(S, ar_type_str(ar_type(ar_car(args))));
+}
+
+
+static ar_Value *f_tostring(ar_State *S, ar_Value *args) {
+  return ar_to_string_value(S, ar_nth(args, 0), 0);
+}
+
+
+static ar_Value *f_tonumber(ar_State *S, ar_Value *args) {
+  return ar_new_number(S, ar_to_number(S, ar_nth(args, 0)));
 }
 
 
@@ -1223,10 +1228,10 @@ static void register_builtin(ar_State *S) {
   };
   /* Functions */
   struct { const char *name; ar_CFunc fn; } funcs[] = {
-    { "tostring", f_tostring},
-    { "tonumber", f_tonumber},
     { "list",     f_list    },
     { "type",     f_type    },
+    { "tostring", f_tostring},
+    { "tonumber", f_tonumber},
     { "print",    f_print   },
     { "parse",    f_parse   },
     { "error",    f_error   },

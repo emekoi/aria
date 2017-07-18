@@ -9,6 +9,7 @@ COMPILER = "gcc"
 INCLUDE = [ TEMPSRC_DIR ]
 SOURCE = [
   "src/*.c",
+  "src/lib/linenoise/*.c",
 ]
 FLAGS = [ "-Wall", "-Wextra", "--std=c89", "-pedantic", "-Wno-declaration-after-statement" ]
 LINK = [ "m" ]

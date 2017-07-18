@@ -5,4 +5,4 @@
         (+ (fib (- n 1)) (fib (- n 2)))
         n)))
 
-  (print (fib (or (ord (nth 1 argv)) 20)))) ; prints 6765
+  (print (fib (or (tonumber (nth 1 argv)) 20)))) ; prints 6765

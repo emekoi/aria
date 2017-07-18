@@ -3,8 +3,18 @@
 ---
 ### core
 ---
-##### primitives
+##### operators
   - `=`
+  - `<`
+  - `>`
+  - `<=`
+  - `>=`
+  - `+`
+  - `-`
+  - `*`
+  - `/`
+  - `mod`
+##### primitives
   - `do`
   - `quote`
   - `eval`
@@ -18,19 +28,57 @@
   - `while`
   - `pcall`
 
+#### macros
+  ##### core
+    - `when`
+    - `unless`
+    - `whenlet`
+    - `default`
+    - `++`
+    - `--`
+  ##### loops
+    - `until`
+
 #### functions
-  - `caar`
-  - `cadr`
-  - `cddr`
-  - `cdar`
-  - `dostring`
-  - `dofile`
-  - `not`
-  - `isnt`
-  - `isa`
-  - `when`
-  - `unless`
-  - `whenlet`
-  - `default`
-  - `assert`
-  - `gensym`
+  ##### core
+    - `caar`
+    - `cadr`
+    - `cddr`
+    - `cdar`
+    - `dostring`
+    - `dofile`
+    - `not`
+    - `isnt`
+    - `isa`
+    - `assert`
+    - `gensym`
+    - `list`
+    - `type`
+    - `tonumber`
+    - `print`
+    - `parse`
+    - `error`
+    - `dbgloc`
+    - `cons`
+    - `car`
+    - `cdr`
+    - `setcar`
+    - `setcdr`
+    - `string`
+    - `substr`
+    - `strlen`
+    - `strpos`
+    - `chr`
+    - `ord`
+    - `lower`
+    - `upper`
+    - `loads`
+    - `dumps`
+    - `is`
+    - `exit`
+  ##### math
+    - `rand`
+    - `abs`
+    - `floor`
+    - `min`
+    - `max`

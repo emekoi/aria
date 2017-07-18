@@ -992,11 +992,6 @@ static ar_Value *f_type(ar_State *S, ar_Value *args) {
 }
 
 
-static ar_Value *f_tostring(ar_State *S, ar_Value *args) {
-  return ar_to_string_value(S, ar_nth(args, 0), 0);
-}
-
-
 static ar_Value *f_tonumber(ar_State *S, ar_Value *args) {
   return ar_new_number(S, ar_to_number(S, ar_nth(args, 0)));
 }
@@ -1230,7 +1225,6 @@ static void register_builtin(ar_State *S) {
   struct { const char *name; ar_CFunc fn; } funcs[] = {
     { "list",     f_list    },
     { "type",     f_type    },
-    { "tostring", f_tostring},
     { "tonumber", f_tonumber},
     { "print",    f_print   },
     { "parse",    f_parse   },
@@ -1410,11 +1404,15 @@ void ar_error_str(ar_State *S, const char *fmt, ...) {
 
 #ifdef AR_STANDALONE
 
+#include "lib/linenoise/linenoise.h"
+
 static ar_Value *f_readline(ar_State *S, ar_Value *args) {
-  char buf[512];
   UNUSED(args);
-  printf("> ");
-  return ar_new_string(S, fgets(buf, sizeof(buf) - 1, stdin));
+  char *line = linenoise("> ");
+  linenoiseHistoryAdd(line);
+  ar_Value *res = ar_new_string(S, line);
+  free(line);
+  return res;
 }
 
 int main(int argc, char **argv) {

@@ -8,10 +8,9 @@ TEMPSRC_DIR = ".tempsrc"
 COMPILER = "gcc"
 INCLUDE = [ TEMPSRC_DIR ]
 SOURCE = [
-  "src/*.c",
-  "src/lib/linenoise/*.c",
+  "src/*.c"
 ]
-FLAGS = [ "-Wall", "-Wextra", "--std=c89", "-pedantic", "-Wno-declaration-after-statement" ]
+FLAGS = [ "-Wall", "-Wextra", "--std=c89", "-pedantic" ]
 LINK = [ "m" ]
 DEFINE = [ "AR_STANDALONE" ]
 EXTRA = ""
@@ -22,9 +21,13 @@ if platform.system() == "Windows":
   FLAGS += [ "-mwindows" ]
   sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
-# if platform.system() == "Linux":
+if platform.system() == "Linux":
+  SOURCE += [ "src/lib/linenoise/*.c" ]
 
-# if platform.system() == "Darwin":
+
+if platform.system() == "Darwin":
+  SOURCE += [ "src/lib/linenoise/*.c" ]
+
 
 
 def fmt(fmt, dic):

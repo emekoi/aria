@@ -14,6 +14,13 @@
 #include <string.h>
 #include <setjmp.h>
 #include <ctype.h>
+#include <time.h>
+
+#ifdef _WIN32
+  #include <windows.h>
+#else
+  #include <sys/time.h>
+#endif
 
 #define AR_VERSION "0.1.1"
 

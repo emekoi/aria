@@ -1,3 +1,1 @@
-(do
-
-  (print "hello world") nil)
+(do (print "hello world"))

@@ -52,10 +52,8 @@ Mkfile.old
 dkms.conf
 
 # Other
-.DS_Store
+*.ll
 *.inc
-
-# Other
 .tempsrc/
 bin/
 *.swp

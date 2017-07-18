@@ -53,10 +53,28 @@
 
   ; math
 
-  (= rand (let (seed 0)
+
+  (= pow (fn (x p)
+    (= res x)
+    (while (> p 1)
+      (= x (* x x))
+      (-- p)) x))
+
+  (= sqr (fn (x) (pow x 2)))
+
+  (= make-rand (fn (x)
+    (default x 0)
     (fn (n)
-      (= seed (mod (+ (* seed 196561) 1374) 2147483647))
-      (if n (mod seed n) (/ seed 2147483647)))))
+      (= x (mod (+ (* x 196561) 1374) 0x7fffffff))
+      (if n (mod x n) (/ x 0x7fffffff)))))
+
+  (= rand (make-rand (now)))
+
+  (= frand (fn (a b)
+    (rand)
+    (if (not a) (= a 0 b 1))
+    (if (not b) (= b 0))
+    (+ a (* (rand) (- b a)))))
 
   (= abs (fn (n)
     (if (< n 0) (- 0 n) n)))
@@ -69,6 +87,11 @@
 
   (= max (fn args
     (reduce (fn (a b) (if (> a b) a b)) args)))
+
+  (= lerp (fn (a b p)
+    (+ a (* (- b a) p))))
+
+  (= clamp (fn (x a b) (or (and (< x a) a) (or (and (> x b) b) x))))
 
 
   ; loop

@@ -1003,7 +1003,7 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
     const char *str = ar_to_stringl(S, ar_car(args), &len);
     fwrite(str, len, 1, stdout);
     if (!ar_cdr(args)) break;
-    printf(" ");
+    /* printf(" "); */
     args = ar_cdr(args);
   }
   printf("\n");
@@ -1196,6 +1196,36 @@ static ar_Value *f_mod(ar_State *S, ar_Value *args) {
 }
 
 
+static ar_Value *f_now(ar_State *S, ar_Value *args) {
+  UNUSED(args);
+  double t;
+  #ifdef _WIN32
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    t = (ft.dwHighDateTime * 4294967296.0 / 1e7) + ft.dwLowDateTime / 1e7;
+    t -= 11644473600.0;
+  #else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    t = tv.tv_sec + tv.tv_usec / 1e6;
+  #endif
+  return ar_new_number(S, t);
+}
+
+
+static ar_Value *f_clock(ar_State *S, ar_Value *args) {
+  UNUSED(args);
+  return ar_new_number(S, (double) clock() / (double) CLOCKS_PER_SEC);
+}
+
+
+static ar_Value *f_sleep(ar_State *S, ar_Value *args) {
+  clock_t target = clock() / CLOCKS_PER_SEC + ar_to_number(S, (ar_nth(args, 0)));
+  while (clock() / CLOCKS_PER_SEC != target);
+  return NULL;
+}
+
+
 static ar_Value *f_exit(ar_State *S, ar_Value *args) {
   exit(ar_opt_number(S, ar_car(args), EXIT_SUCCESS));
   return NULL;
@@ -1255,6 +1285,9 @@ static void register_builtin(ar_State *S) {
     { "*",        f_mul     },
     { "/",        f_div     },
     { "mod",      f_mod     },
+    { "now",      f_now     },
+    { "clock",    f_clock   },
+    { "sleep",    f_sleep   },
     { "exit",     f_exit    },
     { NULL, NULL }
   };
@@ -1404,25 +1437,45 @@ void ar_error_str(ar_State *S, const char *fmt, ...) {
 
 #ifdef AR_STANDALONE
 
-#include "lib/linenoise/linenoise.h"
+#ifndef _WIN32
+  #include "lib/linenoise/linenoise.h"
 
-static ar_Value *f_readline(ar_State *S, ar_Value *args) {
-  UNUSED(args);
-  char *line = linenoise("> ");
-  linenoiseHistoryAdd(line);
-  ar_Value *res = ar_new_string(S, line);
-  free(line);
-  return res;
+  static ar_Value *f_readline(ar_State *S, ar_Value *args) {
+    UNUSED(args);
+    char *line;
+    line = linenoise("> ");
+    if (!line) ar_do_string(S, "(exit)");
+    linenoiseHistoryAdd(line);
+    ar_Value *res = ar_new_string(S, line);
+    free(line);
+    return res;
+  }
+#else
+  static ar_Value *f_readline(ar_State *S, ar_Value *args) {
+    char buf[2048];
+    UNUSED(args);
+    printf("> ");
+    return ar_new_string(S, fgets(buf, sizeof(buf) - 1, stdin));
+  }
+#endif
+
+ar_State *S;
+
+static void shutdown() {
+  ar_close_state(S);
 }
 
 int main(int argc, char **argv) {
-  ar_State *S = ar_new_state(NULL, NULL);
+  atexit(shutdown);
+  S = ar_new_state(NULL, NULL);
   if (!S) {
     printf("out of memory\n");
     return EXIT_FAILURE;
   }
-  /* Enable single line buffering */
-  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+  /* Enable single line buffering for Windows */
+  #if _WIN32
+    setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+  #endif
 
   /* Embed standard library */
   #include "core_lsp.h"
@@ -1442,17 +1495,9 @@ int main(int argc, char **argv) {
   ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
   if (argc < 2) {
     /* Init REPL */
+    #include "repl_lsp.h"
     printf("aria " AR_VERSION "\n");
-    ar_do_string(S, "(while t (pcall "
-                    "  (fn () (print (eval (parse (readline)) global))) "
-                    "  (fn (err tr) "
-                    "    (print \"error:\" err) "
-                    "    (print \"traceback:\") "
-                    "    (while tr "
-                    "      (print (string \"  [\" (dbgloc (car tr)) \"] \" "
-                    "                     (substr (string (car tr)) 0 50))) "
-                    "      (= tr (cdr tr))))))" );
-
+    ar_do_string(S, repl_lsp);
 
   } else {
     /* Store arguments at global list `argv` */
@@ -1465,7 +1510,6 @@ int main(int argc, char **argv) {
     /* Load and do file from argv[1] */
     ar_do_file(S, argv[1]);
   }
-  ar_close_state(S);
   return EXIT_SUCCESS;
 }
 

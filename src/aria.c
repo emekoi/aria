@@ -793,10 +793,10 @@ static ar_Value *raw_call(
       res = fn->u.prim.fn(S, args, env);
       break;
 
-    /* case AR_TFIBER:
-        e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
-        res = ar_do_list(S, fn->u.fiber.body, e);
-        break; */
+    case AR_TFIBER:
+      e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
+      res = ar_do_list(S, fn->u.fiber.body, e);
+      break;
 
     case AR_TFUNC:
       e = args_to_env(S, fn->u.func.params, args, fn->u.func.env);
@@ -831,7 +831,7 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
   fn = ar_eval(S, v->u.pair.car, env);
   switch (ar_type(fn)) {
     case AR_TCFUNC  :
-    /* case AR_TFIBER  : */
+    case AR_TFIBER  :
     case AR_TFUNC   : args = eval_list(S, v->u.pair.cdr, env);  break;
     default         : args = v->u.pair.cdr;                     break;
   }
@@ -841,12 +841,9 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
 
 ar_Value *ar_call(ar_State *S, ar_Value *fn, ar_Value *args) {
   int t = ar_type(fn);
-  /* if (t != AR_TFUNC && t != AR_TCFUNC && != AR_TFIBER) {
-       ar_error_str(S, "expected function or fiber got %s", ar_type_str(t));
-     } */
-  if (t != AR_TFUNC && t != AR_TCFUNC ) {
-    ar_error_str(S, "expected function got %s", ar_type_str(t));
-  }
+  if (t != AR_TFUNC && t != AR_TCFUNC && t != AR_TFIBER) {
+    ar_error_str(S, "expected function or fiber got %s", ar_type_str(t));
+  } 
   return raw_call(S, ar_new_pair(S, fn, args), fn, args, NULL);
 }
 
@@ -1033,16 +1030,6 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
     res = ar_call(S, ar_eval(S, ar_nth(args, 1), env), err);
   });
   return res;
-}
-
-
-static ar_Value *p_resume(ar_State *S, ar_Value *args, ar_Value *env) {
-  ar_Value *res = NULL;
-  ar_check(S, ar_nth(args, 0), AR_TSYMBOL);
-  res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TFIBER);
-  if (res->u.fiber.status != AR_SDEAD) res->u.fiber.status = AR_SRUNNING;
-  else ar_error_str(S, "cannot resume dead fiber");
-  return NULL;
 }
 
 
@@ -1349,7 +1336,6 @@ static void register_builtin(ar_State *S) {
     { "let",      p_let     },
     { "while",    p_while   },
     { "pcall",    p_pcall   },
-    { "resume",   p_resume  },
     { "yield",    p_yield   },
     { NULL, NULL }
   };
@@ -1563,13 +1549,13 @@ char *line;
   }
 #endif
 
-static void shutdown() {
+static void shut_down(void) {
   ar_close_state(S);
   free(line);
 }
 
 int main(int argc, char **argv) {
-  atexit(shutdown);
+  atexit(shut_down);
   S = ar_new_state(NULL, NULL);
   if (!S) {
     printf("out of memory\n");

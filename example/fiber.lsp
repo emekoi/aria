@@ -1,8 +1,8 @@
 (do 
-	(= f (fiber x 
-		(print "hello")
-		(print "world")))
-	(resume f)
-	(print "done.")
-	;(f)
+	(= f (fiber (x)
+		(print "hello " x)
+		(yield f)
+		(print "goodbye " x)))
+	(f "foo")
+	(f "bar")
 	)

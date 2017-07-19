@@ -793,10 +793,10 @@ static ar_Value *raw_call(
       res = fn->u.prim.fn(S, args, env);
       break;
 
-    case AR_TFIBER:
-      e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
-      res = ar_do_list(S, fn->u.fiber.body, e);
-      break;
+    // case AR_TFIBER:
+    //   e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
+    //   res = ar_do_list(S, fn->u.fiber.body, e);
+    //   break;
 
     case AR_TFUNC:
       e = args_to_env(S, fn->u.func.params, args, fn->u.func.env);
@@ -809,7 +809,8 @@ static ar_Value *raw_call(
       break;
 
     default:
-      ar_error_str(S, "expected primitive, function, fiber or macro; got %s",
+      // ar_error_str(S, "expected primitive, function, fiber or macro; got %s",
+      ar_error_str(S, "expected primitive, function or macro; got %s",
                    ar_type_str(ar_type(fn)));
       res = NULL;
   }
@@ -830,7 +831,7 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
   fn = ar_eval(S, v->u.pair.car, env);
   switch (ar_type(fn)) {
     case AR_TCFUNC  :
-    case AR_TFIBER  :
+    // case AR_TFIBER  :
     case AR_TFUNC   : args = eval_list(S, v->u.pair.cdr, env);  break;
     default         : args = v->u.pair.cdr;                     break;
   }
@@ -840,7 +841,10 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
 
 ar_Value *ar_call(ar_State *S, ar_Value *fn, ar_Value *args) {
   int t = ar_type(fn);
-  if (t != AR_TFUNC && t != AR_TCFUNC) {
+  // if (t != AR_TFUNC && t != AR_TCFUNC && != AR_TFIBER) {
+  //   ar_error_str(S, "expected function or fiber got %s", ar_type_str(t));
+  // }
+  if (t != AR_TFUNC && t != AR_TCFUNC ) {
     ar_error_str(S, "expected function got %s", ar_type_str(t));
   }
   return raw_call(S, ar_new_pair(S, fn, args), fn, args, NULL);
@@ -1572,6 +1576,8 @@ int main(int argc, char **argv) {
   ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
   if (argc < 2) {
     /* Init REPL */
+    // repl
+
     #include "repl_lsp.h"
     printf("aria " AR_VERSION "\n");
     ar_do_string(S, repl_lsp);
@@ -1587,6 +1593,9 @@ int main(int argc, char **argv) {
     ar_bind_global(S, "argv", v);
     /* Load and do file from argv[1] */
     ar_do_file(S, argv[1]);
+    switch (argv[2][1]) {
+      case 'i': goto repl;
+    }
   }
   return EXIT_SUCCESS;
 }

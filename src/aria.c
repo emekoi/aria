@@ -1091,6 +1091,20 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
 }
 
 
+static ar_Value *f_read(ar_State *S, ar_Value *args) {
+  while (args) {
+    size_t len;
+    const char *str = ar_to_stringl(S, ar_car(args), &len);
+    fwrite(str, len, 1, stdout);
+    if (!ar_cdr(args)) break;
+    /* printf(" "); */
+    args = ar_cdr(args);
+  }
+  printf("\n");
+  return ar_car(args);
+}
+
+
 static ar_Value *f_parse(ar_State *S, ar_Value *args) {
   return ar_parse(S, ar_check_string(S, ar_car(args)),
                      ar_opt_string(S, ar_nth(args, 1), "(string)"));
@@ -1346,6 +1360,7 @@ static void register_builtin(ar_State *S) {
     { "status",   f_status  },
     { "tonumber", f_tonumber},
     { "print",    f_print   },
+    { "read",     f_read    },
     { "parse",    f_parse   },
     { "error",    f_error   },
     { "dbgloc",   f_dbgloc  },
@@ -1580,9 +1595,9 @@ int main(int argc, char **argv) {
     ar_eval(S, ar_parse(S, items[i].data, items[i].name), S->global);
   }
 
-  ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
   if (argc < 2) {
     /* Init REPL */
+    ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
     #include "repl_lsp.h"
     printf("aria " AR_VERSION "\n");
     ar_do_string(S, repl_lsp);

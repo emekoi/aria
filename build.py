@@ -10,7 +10,7 @@ INCLUDE = [ TEMPSRC_DIR ]
 SOURCE = [
   "src/*.c"
 ]
-FLAGS = [ "-Wall", "-Wextra", "--std=c89", "-pedantic" ]
+FLAGS = [ "-Wall", "-Wextra", "--std=c99", "-pedantic" ]
 LINK = [ "m" ]
 DEFINE = [ "AR_STANDALONE" ]
 EXTRA = ""

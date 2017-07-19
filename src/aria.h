@@ -24,6 +24,7 @@
 
 #define AR_VERSION "0.1.1"
 
+typedef unsigned char uchar;
 typedef struct ar_Value ar_Value;
 typedef struct ar_State ar_State;
 typedef struct ar_Chunk ar_Chunk;
@@ -35,18 +36,19 @@ typedef ar_Value* (*ar_Prim)(ar_State *S, ar_Value* args, ar_Value *env);
 
 
 struct ar_Value {
-  unsigned char type, mark;
+  uchar type, mark;
   union {
-    struct { ar_Value *name; int line;            } dbg;
-    struct { ar_Value *pair, *left, *right;       } map;
-    struct { ar_Value *car, *cdr, *dbg;           } pair;
-    struct { double n;                            } num;
-    struct { ar_Value *params, *body, *env;       } func;
-    struct { void *ptr; ar_CFunc gc, mark;        } udata;
-    struct { ar_Value *parent, *map;              } env;
-    struct { ar_CFunc fn;                         } cfunc;
-    struct { ar_Prim fn;                          } prim;
-    struct { char *s; size_t len; unsigned hash;  } str;
+    struct { ar_Value *name; int line;                    } dbg;
+    struct { ar_Value *pair, *left, *right;               } map;
+    struct { ar_Value *car, *cdr, *dbg;                   } pair;
+    struct { double n;                                    } num;
+    struct { ar_Value *params, *body, *env;               } func;
+    struct { ar_Value *params, *body, *env; uchar status; } fiber;
+    struct { void *ptr; ar_CFunc gc, mark;                } udata;
+    struct { ar_Value *parent, *map;                      } env;
+    struct { ar_CFunc fn;                                 } cfunc;
+    struct { ar_Prim fn;                                  } prim;
+    struct { char *s; size_t len; unsigned hash;          } str;
   } u;
 };
 
@@ -79,6 +81,7 @@ struct ar_State {
   ar_Chunk *gc_chunks;      /* List of all chunks */
   ar_Value *gc_pool;        /* Dead (usable) Values */
   int gc_count;             /* Counts down number of new values until GC */
+  ar_Value *fiber;          /* The current running thread */
 };
 
 
@@ -91,11 +94,19 @@ enum {
   AR_TSTRING,
   AR_TSYMBOL,
   AR_TFUNC,
+  AR_TFIBER,
   AR_TMACRO,
   AR_TPRIM,
   AR_TCFUNC,
   AR_TENV,
   AR_TUDATA
+};
+
+enum {
+  AR_SSUSPENDED,
+  AR_SRUNNING,
+  AR_SNORMAL,
+  AR_SDEAD
 };
 
 #define ar_get_global(S,x)    ar_eval(S, ar_new_symbol(S, x), (S)->global)

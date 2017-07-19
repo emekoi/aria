@@ -1303,7 +1303,7 @@ static ar_Value *f_now(ar_State *S, ar_Value *args) {
     GetSystemTimeAsFileTime(&ft);
     t = (ft.dwHighDateTime * 4294967296.0 / 1e7) + ft.dwLowDateTime / 1e7;
     t -= 11644473600.0;
-    return return ar_new_number(S, t);
+    return ar_new_number(S, t);
   #else
     gettimeofday(&tv, NULL);
     t = tv.tv_sec + tv.tv_usec / 1e6;

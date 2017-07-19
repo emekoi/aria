@@ -13,11 +13,11 @@ def makeArray(data):
     x = str(ord(x)) + ","
     if i[0] + len(x) > 78:
       i[0] = len(x)
-      x = '\n' + x
+      x = '\n  ' + x
     else:
       i[0] += len(x)
     return x
-  return '{' + "".join(map(fn, data)).rstrip(",") + '}'
+  return '{\n  ' + "".join(map(fn, data)).rstrip(",") + '\n}'
 
 
 def safename(filename):
@@ -34,7 +34,7 @@ def process(filenames):
     data = open(filename, "rb").read()
     strings.append(
       fmt("/* {filename} */\n" +\
-          "static const char {name}[] = \n{array};\n",
+          "static const char {name}[] = {array};\n",
           {
            "filename" : os.path.basename(filename),
            "name"     : safename(filename),

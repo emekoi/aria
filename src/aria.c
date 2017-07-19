@@ -793,10 +793,10 @@ static ar_Value *raw_call(
       res = fn->u.prim.fn(S, args, env);
       break;
 
-    // case AR_TFIBER:
-    //   e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
-    //   res = ar_do_list(S, fn->u.fiber.body, e);
-    //   break;
+    /* case AR_TFIBER:
+        e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
+        res = ar_do_list(S, fn->u.fiber.body, e);
+        break; */
 
     case AR_TFUNC:
       e = args_to_env(S, fn->u.func.params, args, fn->u.func.env);
@@ -809,7 +809,7 @@ static ar_Value *raw_call(
       break;
 
     default:
-      // ar_error_str(S, "expected primitive, function, fiber or macro; got %s",
+      /* ar_error_str(S, "expected primitive, function, fiber or macro; got %s", */
       ar_error_str(S, "expected primitive, function or macro; got %s",
                    ar_type_str(ar_type(fn)));
       res = NULL;
@@ -831,7 +831,7 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
   fn = ar_eval(S, v->u.pair.car, env);
   switch (ar_type(fn)) {
     case AR_TCFUNC  :
-    // case AR_TFIBER  :
+    /* case AR_TFIBER  : */
     case AR_TFUNC   : args = eval_list(S, v->u.pair.cdr, env);  break;
     default         : args = v->u.pair.cdr;                     break;
   }
@@ -841,9 +841,9 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
 
 ar_Value *ar_call(ar_State *S, ar_Value *fn, ar_Value *args) {
   int t = ar_type(fn);
-  // if (t != AR_TFUNC && t != AR_TCFUNC && != AR_TFIBER) {
-  //   ar_error_str(S, "expected function or fiber got %s", ar_type_str(t));
-  // }
+  /* if (t != AR_TFUNC && t != AR_TCFUNC && != AR_TFIBER) {
+       ar_error_str(S, "expected function or fiber got %s", ar_type_str(t));
+     } */
   if (t != AR_TFUNC && t != AR_TCFUNC ) {
     ar_error_str(S, "expected function got %s", ar_type_str(t));
   }
@@ -1037,8 +1037,9 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 
 
 static ar_Value *p_resume(ar_State *S, ar_Value *args, ar_Value *env) {
+  ar_Value *res = NULL;
   ar_check(S, ar_nth(args, 0), AR_TSYMBOL);
-  ar_Value *res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TFIBER);
+  res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TFIBER);
   if (res->u.fiber.status != AR_SDEAD) res->u.fiber.status = AR_SRUNNING;
   else ar_error_str(S, "cannot resume dead fiber");
   return NULL;
@@ -1046,8 +1047,9 @@ static ar_Value *p_resume(ar_State *S, ar_Value *args, ar_Value *env) {
 
 
 static ar_Value *p_yield(ar_State *S, ar_Value *args, ar_Value *env) {
+  ar_Value *res = NULL;
   ar_check(S, ar_nth(args, 0), AR_TSYMBOL);
-  ar_Value *res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TFIBER);
+  res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TFIBER);
   if (env != S->global) res->u.fiber.status = AR_SSUSPENDED;
   else ar_error_str(S, "cannot yield from outside a fiber");
   return NULL;
@@ -1275,15 +1277,20 @@ static ar_Value *f_mod(ar_State *S, ar_Value *args) {
 
 
 static ar_Value *f_now(ar_State *S, ar_Value *args) {
-  UNUSED(args);
   double t;
   #ifdef _WIN32
     FILETIME ft;
+  #else
+    struct timeval tv;
+  #endif
+
+  UNUSED(args);
+  #ifdef _WIN32
     GetSystemTimeAsFileTime(&ft);
     t = (ft.dwHighDateTime * 4294967296.0 / 1e7) + ft.dwLowDateTime / 1e7;
     t -= 11644473600.0;
+    return return ar_new_number(S, t);
   #else
-    struct timeval tv;
     gettimeofday(&tv, NULL);
     t = tv.tv_sec + tv.tv_usec / 1e6;
   #endif
@@ -1576,16 +1583,13 @@ int main(int argc, char **argv) {
   ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
   if (argc < 2) {
     /* Init REPL */
-    // repl
-
     #include "repl_lsp.h"
     printf("aria " AR_VERSION "\n");
     ar_do_string(S, repl_lsp);
 
   } else {
-    free(line);
-    /* Store arguments at global list `argv` */
     int i;
+    /* Store arguments at global list `argv` */
     ar_Value *v = NULL, **last = &v;
     for (i = 1; i < argc; i++) {
       last = ar_append_tail(S, last, ar_new_string(S, argv[i]));
@@ -1593,9 +1597,6 @@ int main(int argc, char **argv) {
     ar_bind_global(S, "argv", v);
     /* Load and do file from argv[1] */
     ar_do_file(S, argv[1]);
-    switch (argv[2][1]) {
-      case 'i': goto repl;
-    }
   }
   return EXIT_SUCCESS;
 }

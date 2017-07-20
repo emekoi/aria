@@ -1079,16 +1079,13 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
 
 
 static ar_Value *f_read(ar_State *S, ar_Value *args) {
-  while (args) {
-    size_t len;
-    const char *str = ar_to_stringl(S, ar_car(args), &len);
-    fwrite(str, len, 1, stdout);
-    if (!ar_cdr(args)) break;
-    /* printf(" "); */
-    args = ar_cdr(args);
+  char str[BUFSIZ];
+  switch (ar_type(ar_car(args))) {
+    case AR_TNUMBER:
+      return ar_new_string(S, fgets(str, ar_to_number(S, ar_car(args)) + 1, stdin));
+    default:
+      return ar_new_string(S, fgets(str, BUFSIZ, stdin));
   }
-  printf("\n");
-  return ar_car(args);
 }
 
 

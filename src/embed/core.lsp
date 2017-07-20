@@ -50,6 +50,24 @@
     (fn ()
       (parse (string "G#" (++ x))))))
 
+  (= case (macro (v . x)
+    (let (z (gensym))
+      (list 'let (list z v) (cons 'if (collect (fn (p)
+        (while x
+          (p (list 'is z (car x)))
+          (= x (cdr x))
+          (p (car x))
+          (= x (cdr x))))))))))
+
+  (= memoize (fn (f)
+    (let (cache nil)
+      (fn (x)
+        (let (res (alget x cache))
+          (unless res
+            (= res (cons x (f x)))
+            (push res cache))
+          (cdr res))))))
+
 
   ; math
 

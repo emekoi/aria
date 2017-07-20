@@ -1,7 +1,5 @@
 (do
 
-
-
   (= capitalize (fn (s)
     (string (upper (substr s 0 1)) (substr s 1))))
 

@@ -20,8 +20,14 @@ A *tiny*, easily embeddable lisp-shaped language implemented in C99.
 * Simple implementation and garbage collector
 * Easy-to-use C API
 
-https://github.com/ceramic/ceramic
 
 ## License
 This library is free software; you can redistribute it and/or modify it under
 the terms of the MIT license. See [LICENSE](LICENSE) for details.
+
+## Other
+* https://github.com/ceramic/ceramic
+* http://libmill.org/
+* https://github.com/sustrik/libmill
+* https://millcomputing.com/topic/coroutines-greenlets-in-mill/
+* https://millcomputing.com/topic/threadscoroutines/

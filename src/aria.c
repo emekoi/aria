@@ -1042,6 +1042,13 @@ static ar_Value *p_yield(ar_State *S, ar_Value *args, ar_Value *env) {
   return NULL;
 }
 
+static ar_Value *p_native(ar_State *S, ar_Value *args, ar_Value *env) {
+  ar_Value *res = NULL;
+  ar_check(S, ar_nth(args, 0), AR_TSYMBOL);
+  res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TSTRING);
+  return res;
+}
+
 
 static ar_Value *f_list(ar_State *S, ar_Value *args) {
   UNUSED(S);
@@ -1070,7 +1077,7 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
     const char *str = ar_to_stringl(S, ar_car(args), &len);
     fwrite(str, len, 1, stdout);
     if (!ar_cdr(args)) break;
-    /* printf(" "); */
+    printf(" ");
     args = ar_cdr(args);
   }
   printf("\n");
@@ -1334,6 +1341,7 @@ static void register_builtin(ar_State *S) {
     { "while",    p_while   },
     { "pcall",    p_pcall   },
     { "yield",    p_yield   },
+    { "native",   p_native  },
     { NULL, NULL }
   };
   /* Functions */

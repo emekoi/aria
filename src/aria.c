@@ -19,6 +19,13 @@ struct ar_Chunk {
 };
 
 
+struct ar_Lib {
+  char *name;
+  void *data;
+  struct ar_Lib *next;
+};
+
+
 static void *zrealloc(ar_State *S, void *ptr, size_t n) {
   void *p = S->alloc(S->udata, ptr, n);
   if (!p) ar_error(S, S->oom_error);
@@ -184,7 +191,6 @@ const char *ar_type_str(int type) {
     case AR_TSTRING : return "string";
     case AR_TSYMBOL : return "symbol";
     case AR_TFUNC   : return "function";
-    case AR_TFIBER  : return "fiber";
     case AR_TMACRO  : return "macro";
     case AR_TPRIM   : return "primitive";
     case AR_TCFUNC  : return "cfunction";
@@ -201,22 +207,6 @@ ar_Value *ar_check(ar_State *S, ar_Value *v, int type) {
                  ar_type_str(type), ar_type_str(ar_type(v)));
   }
   return v;
-}
-
-
-int ar_status(ar_Value *v) {
-  return v->u.fiber.status;
-}
-
-
-const char *ar_status_str(int status) {
-  switch (status) {
-    case AR_SSUSPENDED : return "suspended";
-    case AR_SRUNNING   : return "running";
-    case AR_SNORMAL    : return "normal";
-    case AR_SDEAD      : return "dead";
-  }
-  return "?";
 }
 
 
@@ -484,11 +474,6 @@ begin:
       ar_mark(S, v->u.func.params);
       ar_mark(S, v->u.func.body);
       v = v->u.func.env;
-      goto begin;
-    case AR_TFIBER:
-      ar_mark(S, v->u.fiber.params);
-      ar_mark(S, v->u.fiber.body);
-      v = v->u.fiber.env;
       goto begin;
     case AR_TENV:
       ar_mark(S, v->u.env.map);
@@ -793,11 +778,6 @@ static ar_Value *raw_call(
       res = fn->u.prim.fn(S, args, env);
       break;
 
-    case AR_TFIBER:
-      e = args_to_env(S, fn->u.fiber.params, args, fn->u.fiber.env);
-      res = ar_do_list(S, fn->u.fiber.body, e);
-      break;
-
     case AR_TFUNC:
       e = args_to_env(S, fn->u.func.params, args, fn->u.func.env);
       res = ar_do_list(S, fn->u.func.body, e);
@@ -809,7 +789,6 @@ static ar_Value *raw_call(
       break;
 
     default:
-      /* ar_error_str(S, "expected primitive, function, fiber or macro; got %s", */
       ar_error_str(S, "expected primitive, function or macro; got %s",
                    ar_type_str(ar_type(fn)));
       res = NULL;
@@ -831,7 +810,6 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
   fn = ar_eval(S, v->u.pair.car, env);
   switch (ar_type(fn)) {
     case AR_TCFUNC  :
-    case AR_TFIBER  :
     case AR_TFUNC   : args = eval_list(S, v->u.pair.cdr, env);  break;
     default         : args = v->u.pair.cdr;                     break;
   }
@@ -841,9 +819,9 @@ ar_Value *ar_eval(ar_State *S, ar_Value *v, ar_Value *env) {
 
 ar_Value *ar_call(ar_State *S, ar_Value *fn, ar_Value *args) {
   int t = ar_type(fn);
-  if (t != AR_TFUNC && t != AR_TCFUNC && t != AR_TFIBER) {
-    ar_error_str(S, "expected function or fiber got %s", ar_type_str(t));
-  } 
+  if (t != AR_TFUNC && t != AR_TCFUNC) {
+    ar_error_str(S, "expected function got %s", ar_type_str(t));
+  }
   return raw_call(S, ar_new_pair(S, fn, args), fn, args, NULL);
 }
 
@@ -868,6 +846,164 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
   ar_Value *str = ar_call_global(S, "loads", args);
   return ar_eval(S, ar_parse(S, str->u.str.s, filename), S->global);
 }
+
+
+/*===========================================================================
+ * Dynamic library loading
+ *===========================================================================*/
+
+
+static char *basename(char *str) {
+  char *p = str + strlen(str);
+  char *file = "";
+  while (p != str) {
+    if (*p == '/' || *p == '\\') {
+      UNUSED(*p++);
+      file = p;
+      break;
+    }
+    p--;
+  }
+  return file;
+}
+
+static char *concat(const char *str, ...) {
+  va_list args;
+  const char *s;
+  /* Get len */
+  int len = strlen(str);
+  va_start(args, str);
+  while ((s = va_arg(args, char*))) {
+    len += strlen(s);
+  }
+  va_end(args);
+  /* Build string */
+  char *res = malloc(len + 1);
+  if (!res) return NULL;
+  strcpy(res, str);
+  va_start(args, str);
+  while ((s = va_arg(args, char*))) {
+    strcat(res, s);
+  }
+  va_end(args);
+  return res;
+}
+
+#ifdef AR_DL_DLOPEN
+  #include <dlfcn.h>
+  #if __GNUC__
+    #define cast_func(p) (__extension__ (ar_Load)(p))
+  #else
+    #define cast_func(p) ((ar_Load)(p))
+  #endif
+
+  static void ar_lib_close(ar_State *S, ar_Lib *lib) {
+    dlclose(lib->data);
+  }
+
+  static ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+    /* Check if library has already been loaded */
+    ar_Lib *l = S->libs;
+    while (l) {
+      if (!strcmp(l->name, path)) return NULL;
+      l = l->next;
+    }
+
+    /* Create and name library */
+    ar_Lib *lib = zrealloc(S, NULL, sizeof(*lib));
+    lib->name = basename(path);
+
+    /* Open the library */
+    void *data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
+    if (data == NULL) ar_error_str(S, dlerror());
+    lib->data = data;
+    /* Try tp run the library's open function */
+    dlerror(); char *err;
+    char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
+    ar_Load open_lib = cast_func(dlsym(lib->data, r));
+    if ((err = dlerror()) != NULL) ar_error_str(S, err);
+    free(r);
+
+    open_lib(S);
+
+    /* Add library to library list and return it */
+    lib->next = S->libs;
+    S->libs = lib;
+    return lib;
+  }
+
+  // static void *ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+  //   dlerror(); char *err;
+  //   ar_Load fn = cast_func(dlsym(lib->data, sym));
+  //   if ((err = dlerror()) != NULL) ar_error_str(S, err);
+  //   return fn;
+  // }
+
+#elif AR_DL_DLL
+  #include <windows.h>
+  /* Optional flags for LoadLibraryEx */
+  #ifndef AR_LLE_FLAGS
+  #define AR_LLE_FLAGS 0
+  #endif
+
+  static void pusherror (ar_State *S) {
+    int error = GetLastError();
+    char buffer[128];
+    if (FormatMessageA(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL, error, 0, buffer, sizeof(buffer), NULL))
+      ar_error_str(S, buffer);
+    else
+      ar_error_str(S, "system error %d", error);
+  }
+
+  static void ar_lib_close(ar_State *S, ar_Lib *lib) {
+    FreeLibrary((HMODULE) lib->data);
+  }
+
+  static ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+    UNUSED(global);
+
+    ar_Lib *lib = zrealloc(S, NULL, sizeof(*lib));
+    lib->name = path;
+
+    /* Opening the library */
+    HMODULE data = LoadLibraryEx(path, NULL, AR_LLE_FLAGS);
+    if (!data || data == NULL) pusherror(S);
+    lib->data = data;
+
+    /* Add library to library list and return it */
+    lib->next = S->libs;
+    S->libs = lib;
+    return lib;
+  }
+
+  // static ar_CFunc *ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+  //   ar_Load fn = GetProcAddress((HMODULE)lib->data, sym);
+  //   if (!fn || fn == NULL || GetLastError()) pusherror(S);
+  //   return fn;
+  // }
+
+#else
+  #define DLMSG	"dynamic libraries not enabled; check your installation"
+
+  static void ar_lib_close(ar_State *S, ar_Lib *lib) {
+    UNUSED(lib); UNUSED(S);
+    ar_error_str(S, DLMSG);
+  }
+
+  static ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+    UNUSED(path); UNUSED(global);
+    ar_error_str(S, DLMSG);
+    return NULL;
+  }
+
+  // static ar_CFunc *ar_lib_sym(ar_State *S, void *lib, const char *sym) {
+  //   UNUSED(lib); UNUSED(sym);
+  //   ar_error_str(S, DLMSG);
+  //   return NULL;
+  // }
+
+#endif
 
 
 /*===========================================================================
@@ -922,29 +1058,6 @@ static ar_Value *p_fn(ar_State *S, ar_Value *args, ar_Value *env) {
   v->u.func.params = ar_car(args);
   v->u.func.body = ar_cdr(args);
   v->u.func.env = env;
-  return v;
-}
-
-
-static ar_Value *p_fiber(ar_State *S, ar_Value *args, ar_Value *env) {
-  ar_Value *v = ar_car(args);
-  int t = ar_type(v);
-  /* Type check */
-  if (t != AR_TPAIR && t != AR_TSYMBOL) {
-    ar_error_str(S, "expected pair or symbol, got %s", ar_type_str(t));
-  }
-  if (t == AR_TPAIR && (ar_car(v) || ar_cdr(v))) {
-    while (v) {
-      ar_check(S, ar_car(v), AR_TSYMBOL);
-      v = ar_cdr(v);
-    }
-  }
-  /* Init function */
-  v = new_value(S, AR_TFIBER);
-  v->u.fiber.params = ar_car(args);
-  v->u.fiber.body = ar_cdr(args);
-  v->u.fiber.env = env;
-  v->u.fiber.status = AR_SSUSPENDED;
   return v;
 }
 
@@ -1033,19 +1146,11 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
-static ar_Value *p_yield(ar_State *S, ar_Value *args, ar_Value *env) {
-  ar_Value *res = NULL;
-  ar_check(S, ar_nth(args, 0), AR_TSYMBOL);
-  res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TFIBER);
-  if (env != S->global) res->u.fiber.status = AR_SSUSPENDED;
-  else ar_error_str(S, "cannot yield from outside a fiber");
-  return NULL;
-}
-
 static ar_Value *p_native(ar_State *S, ar_Value *args, ar_Value *env) {
   ar_Value *res = NULL;
-  ar_check(S, ar_nth(args, 0), AR_TSYMBOL);
-  res = ar_check(S, ar_eval(S, ar_car(args), env), AR_TSTRING);
+  res = ar_check(S, ar_eval(S, ar_nth(args, 0), env), AR_TSTRING);
+  ar_Lib *lib = ar_lib_load(S, res->u.str.s, 1);
+
   return res;
 }
 
@@ -1058,11 +1163,6 @@ static ar_Value *f_list(ar_State *S, ar_Value *args) {
 
 static ar_Value *f_type(ar_State *S, ar_Value *args) {
   return ar_new_symbol(S, ar_type_str(ar_type(ar_car(args))));
-}
-
-
-static ar_Value *f_status(ar_State *S, ar_Value *args) {
-  return ar_new_symbol(S, ar_status_str(ar_status(ar_check(S, ar_car(args), AR_TFIBER))));
 }
 
 
@@ -1330,7 +1430,6 @@ static void register_builtin(ar_State *S) {
     { "do",       p_do      },
     { "quote",    p_quote   },
     { "eval",     p_eval    },
-    { "fiber",    p_fiber   },
     { "fn",       p_fn      },
     { "macro",    p_macro   },
     { "apply",    p_apply   },
@@ -1340,7 +1439,6 @@ static void register_builtin(ar_State *S) {
     { "let",      p_let     },
     { "while",    p_while   },
     { "pcall",    p_pcall   },
-    { "yield",    p_yield   },
     { "native",   p_native  },
     { NULL, NULL }
   };
@@ -1348,7 +1446,6 @@ static void register_builtin(ar_State *S) {
   struct { const char *name; ar_CFunc fn; } funcs[] = {
     { "list",     f_list    },
     { "type",     f_type    },
-    { "status",   f_status  },
     { "tonumber", f_tonumber},
     { "print",    f_print   },
     { "read",     f_read    },
@@ -1443,6 +1540,17 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
 
 void ar_close_state(ar_State *S) {
   gc_deinit(S);
+
+  /* Close all open libaries */
+  ar_Lib *lib, *next;
+  lib = S->libs;
+  while (lib) {
+    next = lib->next;
+    ar_lib_close(S, lib);
+    zfree(S, lib);
+    lib = next;
+  }
+
   zfree(S, S);
 }
 

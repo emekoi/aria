@@ -10,9 +10,6 @@
 #define MAX_STACK 1024
 #define CHUNK_LEN 1024
 
-#define UNUSED(x) ((void) x)
-
-
 struct ar_Chunk {
   ar_Value values[CHUNK_LEN];
   struct ar_Chunk *next;
@@ -23,6 +20,20 @@ struct ar_Lib {
   char *name;
   void *data;
   struct ar_Lib *next;
+};
+
+
+struct { const char *path; uchar local; } ar_SearchPaths[] = {
+  { "/usr/local/share/aria/0.1/%s.lsp",      0 },
+  { "/usr/local/share/aria/0.1/%s/init.lsp", 0 },
+  { "/usr/local/lib/aria/0.1/%s.lsp",        0 },
+  { "/usr/local/lib/aria/0.1/%s/init.lsp",   0 },
+  { "%s/%s.lsp",                             1 },
+  { "%s/%s/init.lsp",                        1 },
+  { "/usr/local/lib/aria/0.1/%s.so",         0 },
+  { "/usr/local/lib/aria/0.1/loadall.so",    0 },
+  { "%s/%s.so",                              1 },
+  { NULL,                                    0 }
 };
 
 
@@ -852,43 +863,6 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
  * Dynamic library loading
  *===========================================================================*/
 
-
-static char *basename(char *str) {
-  char *p = str + strlen(str);
-  char *file = "";
-  while (p != str) {
-    if (*p == '/' || *p == '\\') {
-      UNUSED(*p++);
-      file = p;
-      break;
-    }
-    p--;
-  }
-  return file;
-}
-
-static char *concat(const char *str, ...) {
-  va_list args;
-  const char *s;
-  /* Get len */
-  int len = strlen(str);
-  va_start(args, str);
-  while ((s = va_arg(args, char*))) {
-    len += strlen(s);
-  }
-  va_end(args);
-  /* Build string */
-  char *res = malloc(len + 1);
-  if (!res) return NULL;
-  strcpy(res, str);
-  va_start(args, str);
-  while ((s = va_arg(args, char*))) {
-    strcat(res, s);
-  }
-  va_end(args);
-  return res;
-}
-
 #ifdef AR_DL_DLOPEN
   #include <dlfcn.h>
   #if __GNUC__
@@ -897,11 +871,12 @@ static char *concat(const char *str, ...) {
     #define cast_func(p) ((ar_Load)(p))
   #endif
 
-  static void ar_lib_close(ar_State *S, ar_Lib *lib) {
+  void ar_lib_close(ar_State *S, ar_Lib *lib) {
+    UNUSED(S);
     dlclose(lib->data);
   }
 
-  static ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+  ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
     /* Check if library has already been loaded */
     ar_Lib *l = S->libs;
     while (l) {
@@ -915,7 +890,8 @@ static char *concat(const char *str, ...) {
 
     /* Open the library */
     void *data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
-    if (data == NULL) ar_error_str(S, dlerror());
+    // if (data == NULL) ar_error_str(S, dlerror());
+    if (data == NULL) return NULL;
     lib->data = data;
     /* Try tp run the library's open function */
     dlerror(); char *err;
@@ -956,11 +932,12 @@ static char *concat(const char *str, ...) {
       ar_error_str(S, "system error %d", error);
   }
 
-  static void ar_lib_close(ar_State *S, ar_Lib *lib) {
+  void ar_lib_close(ar_State *S, ar_Lib *lib) {
+    UNUSED(S);
     FreeLibrary((HMODULE) lib->data);
   }
 
-  static ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+  ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
     UNUSED(global);
 
     ar_Lib *lib = zrealloc(S, NULL, sizeof(*lib));
@@ -986,12 +963,12 @@ static char *concat(const char *str, ...) {
 #else
   #define DLMSG	"dynamic libraries not enabled; check your installation"
 
-  static void ar_lib_close(ar_State *S, ar_Lib *lib) {
+  void ar_lib_close(ar_State *S, ar_Lib *lib) {
     UNUSED(lib); UNUSED(S);
     ar_error_str(S, DLMSG);
   }
 
-  static ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+  ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
     UNUSED(path); UNUSED(global);
     ar_error_str(S, DLMSG);
     return NULL;
@@ -1145,11 +1122,44 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
   return res;
 }
 
+#ifdef _WIN32
+#define getcwd GetCurrentDirectory
+#define setcwd SetCurrentDirectory
+#endif
 
-static ar_Value *p_native(ar_State *S, ar_Value *args, ar_Value *env) {
+static ar_Value *p_require(ar_State *S, ar_Value *args, ar_Value *env) {
   ar_Value *res = NULL;
   res = ar_check(S, ar_eval(S, ar_nth(args, 0), env), AR_TSTRING);
-  ar_Lib *lib = ar_lib_load(S, res->u.str.s, 1);
+  size_t found = 0;
+
+  /* Check all search paths */
+  for (size_t i = 0; ar_SearchPaths[i].path; i++) {
+    /* Check for C libaries */
+    ar_Lib *lib;
+    char path[4096];
+    if (ar_SearchPaths[i].local) {
+      char cwd[1024];
+      sprintf(path, ar_SearchPaths[i].path, getcwd(cwd, sizeof(cwd)), skipDotSlash(res->u.str.s));
+    } else {
+      sprintf(path, ar_SearchPaths[i].path, skipDotSlash(res->u.str.s));
+    }
+    lib = ar_lib_load(S, path, 1);
+    if (lib) {
+      found = 1;
+      break;
+    }
+
+    /* Check for aria libraries */
+    ar_try(S, err, {
+      ar_do_file(S, path);
+      found = 1;
+    }, {
+      found = 0;
+      UNUSED(err);
+    });
+    if (found) break;
+  }
+  if (!found) ar_error_str(S, "module \"%s\" not found", res->u.str.s);
 
   return res;
 }
@@ -1439,7 +1449,7 @@ static void register_builtin(ar_State *S) {
     { "let",      p_let     },
     { "while",    p_while   },
     { "pcall",    p_pcall   },
-    { "native",   p_native  },
+    { "require",  p_require },
     { NULL, NULL }
   };
   /* Functions */

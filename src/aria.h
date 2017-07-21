@@ -15,6 +15,7 @@
 #include <setjmp.h>
 #include <ctype.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 #ifdef _WIN32
@@ -23,11 +24,12 @@
   #include <sys/time.h>
 #endif
 
+#include "util.h"
 
 #define AR_VERSION "0.1.1"
 #define AR_POF "ar_open"
 #define AR_OFSEP "_"
-#define AR_OFN AR_POF AR_OFSEP 
+#define AR_OFN AR_POF AR_OFSEP
 
 
 typedef unsigned char uchar;
@@ -178,8 +180,8 @@ ar_Value *ar_do_list(ar_State *S, ar_Value *body, ar_Value *env);
 ar_Value *ar_do_string(ar_State *S, const char *str);
 ar_Value *ar_do_file(ar_State *S, const char *filename);
 
-static void ar_lib_close(ar_State *S, ar_Lib *lib);
-static ar_Lib *ar_lib_load(ar_State *S, char *path, int global);
+void ar_lib_close(ar_State *S, ar_Lib *lib);
+ar_Lib *ar_lib_load(ar_State *S, char *path, int global);
 // static void *ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
 
 #endif

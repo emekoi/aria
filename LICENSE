@@ -19,3 +19,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+===============================================================================
+
+The project also includes 3rd party source files, the full licenses for these
+files can be found through their corresponding URL or in the files themselves.
+An overview of the source files are as follows:
+
+src/lib/linenoise/*
+. A small self-contained alternative to readline and libedit
+. BSD license
+. https://github.com/antirez/linenoise

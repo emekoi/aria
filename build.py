@@ -106,6 +106,9 @@ def main():
   print "clearing up..."
   clearup()
 
+  if "install" in sys.argv:
+    shutil.copy2(OUTPUT, "/usr/local/bin")
+
   if res == 0:
     print "done (%.2fs)" % (time.time() - starttime)
   else:

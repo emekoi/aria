@@ -22,6 +22,22 @@ struct ar_Lib {
   struct ar_Lib *next;
 };
 
+#ifdef _WIN32
+
+struct { const char *path; uchar local; } ar_SearchPaths[] = {
+  { "/usr/local/share/aria/0.1/%s.lsp",      0 },
+  { "/usr/local/share/aria/0.1/%s/init.lsp", 0 },
+  { "/usr/local/lib/aria/0.1/%s.lsp",        0 },
+  { "/usr/local/lib/aria/0.1/%s/init.lsp",   0 },
+  { "%s/%s.lsp",                             1 },
+  { "%s/%s/init.lsp",                        1 },
+  { "/usr/local/lib/aria/0.1/%s.so",         0 },
+  { "/usr/local/lib/aria/0.1/loadall.dll",   0 },
+  { "%s/%s.dll",                             1 },
+  { NULL,                                    0 }
+};
+
+#else
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "/usr/local/share/aria/0.1/%s.lsp",      0 },
@@ -36,6 +52,7 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { NULL,                                    0 }
 };
 
+#endif
 
 static void *zrealloc(ar_State *S, void *ptr, size_t n) {
   void *p = S->alloc(S->udata, ptr, n);
@@ -891,16 +908,15 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     /* Open the library */
     void *data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
     // if (data == NULL) ar_error_str(S, dlerror());
-    if (data == NULL) return NULL;
+    if (!data || data == NULL) return NULL;
     lib->data = data;
-    /* Try tp run the library's open function */
+
+    /* Try to run the library's open function */
     dlerror(); char *err;
     char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
     ar_Load open_lib = cast_func(dlsym(lib->data, r));
     if ((err = dlerror()) != NULL) ar_error_str(S, err);
-    free(r);
-
-    open_lib(S);
+    free(r); open_lib(S);
 
     /* Add library to library list and return it */
     lib->next = S->libs;
@@ -940,13 +956,26 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
   ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
     UNUSED(global);
 
+    /* Check if library has already been loaded */
+    ar_Lib *l = S->libs;
+    while (l) {
+      if (!strcmp(l->name, path)) return NULL;
+      l = l->next;
+    }
+
     ar_Lib *lib = zrealloc(S, NULL, sizeof(*lib));
-    lib->name = path;
+    lib->name = basename(path);
 
     /* Opening the library */
     HMODULE data = LoadLibraryEx(path, NULL, AR_LLE_FLAGS);
-    if (!data || data == NULL) pusherror(S);
+    if (!data || data == NULL) return NULL;
     lib->data = data;
+
+    /* Try to run the library's open function */
+    char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
+    ar_Load open_lib = GetProcAddress((HMODULE)lib->data, r);
+    if (GetLastError()) pusherror(S);
+    free(r); open_lib(S);
 
     /* Add library to library list and return it */
     lib->next = S->libs;
@@ -1123,8 +1152,14 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 #ifdef _WIN32
-#define getcwd GetCurrentDirectory
-#define setcwd SetCurrentDirectory
+
+char *getcwd(char *buf, int len) {
+  UNUSED(buf); len = GetCurrentDirectory(0, NULL);
+  char *str = calloc(1, sizeof(char) * len);
+  GetCurrentDirectory(len, str);
+  return str;
+}
+
 #endif
 
 static ar_Value *p_require(ar_State *S, ar_Value *args, ar_Value *env) {

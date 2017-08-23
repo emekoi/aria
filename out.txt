@@ -1,0 +1,15 @@
+error: core.lsp:104: expected number, got nil
+traceback:
+  [core.lsp:104] (< a b)
+  [core.lsp:104] (if (< a b) a b)
+  [core.lsp:239] (f res (car lst))
+  [core.lsp:239] (= res (f res (car lst)) lst (cdr lst))
+  [core.lsp:238] (while lst (= res (f res (car lst)) lst (cdr lst))
+  [core.lsp:236] (let (res (car lst)) (= lst (cdr lst)) (while lst 
+  [core.lsp:104] (reduce (fn (a b) (if (< a b) a b)) args)
+  [example/ascii.lsp:7] (min _min (nth i series))
+  [example/ascii.lsp:7] (= _min (min _min (nth i series)))
+  [example/ascii.lsp:6] (while (<= i (len series)) (= _min (min _min (nth 
+  [example/ascii.lsp:6] (let (i 0) (while (<= i (len series)) (= _min (min
+  [example/ascii.lsp:13] (plot (list 1 6 7 5))
+  [example/ascii.lsp:1] (do (= plot (fn (series cfg) (= _min (nth 0 series

@@ -1426,6 +1426,12 @@ static ar_Value *f_mod(ar_State *S, ar_Value *args) {
 }
 
 
+static ar_Value *f_ceil(ar_State *S, ar_Value *args) {
+  double x = ar_check_number(S, ar_car(args));
+  return ar_new_number(S, ceil(x));
+}
+
+
 static ar_Value *f_now(ar_State *S, ar_Value *args) {
   double t;
   #ifdef _WIN32
@@ -1522,6 +1528,7 @@ static void register_builtin(ar_State *S) {
     { "*",        f_mul     },
     { "/",        f_div     },
     { "mod",      f_mod     },
+    { "ceil",     f_ceil    },
     { "now",      f_now     },
     { "clock",    f_clock   },
     { "sleep",    f_sleep   },

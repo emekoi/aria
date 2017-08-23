@@ -68,7 +68,6 @@
             (push res cache))
           (cdr res))))))
 
-
   ; math
 
 
@@ -110,6 +109,10 @@
     (+ a (* (- b a) p))))
 
   (= clamp (fn (x a b) (or (and (< x a) a) (or (and (> x b) b) x))))
+
+  (= round (fn (x inc) 
+    (when inc (round (* (/ x inc) inc)))
+    (or (and (>= x 0) (floor (+ x 0.5))) (ceil (- x 0.5)))))
 
 
   ; loop

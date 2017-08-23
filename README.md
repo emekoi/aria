@@ -31,3 +31,5 @@ the terms of the MIT license. See [LICENSE](LICENSE) for details.
 * https://github.com/sustrik/libmill
 * https://millcomputing.com/topic/coroutines-greenlets-in-mill/
 * https://millcomputing.com/topic/threadscoroutines/
+* https://docs.rs/crate/rustyline/1.0.0/source/src/tty/unix.rs
+* https://github.com/kroitor/asciichart/blob/master/asciichart.js

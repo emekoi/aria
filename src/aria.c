@@ -1189,7 +1189,7 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
   }
   if (!found) ar_error_str(S, "module \"%s\" not found", res->u.str.s);
 
-  return S->t;
+  return NULL;
 }
 
 

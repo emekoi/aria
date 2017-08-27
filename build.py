@@ -13,7 +13,7 @@ SOURCE = [
 FLAGS = [ "-Wall", "-Wextra", "--std=c99", "-pedantic", "-fno-strict-aliasing" ]
 LINK = [ "m" ]
 DEFINE = [ "AR_STANDALONE" ]
-EXTRA = ""
+EXTRA = [  ]
 
 if platform.system() == "Windows":
   OUTPUT += ".exe"
@@ -54,7 +54,7 @@ def main():
   starttime = time.time()
 
   # Handle args
-  build = "debug" if "debug" in sys.argv else "release"
+  build = "release" if "release" in sys.argv else "debug"
   verbose = "verbose" in sys.argv
 
   # Handle build type
@@ -92,7 +92,7 @@ def main():
       "link"      : " ".join(map(lambda x:"-l" + x, LINK)),
       "define"    : " ".join(map(lambda x:"-D" + x, DEFINE)),
       "flags"     : " ".join(FLAGS),
-      "extra"     : EXTRA,
+      "extra"     : " ".join(EXTRA),
     })
 
   if verbose:
@@ -107,9 +107,6 @@ def main():
 
   print "clearing up..."
   clearup()
-
-  if "install" in sys.argv:
-    shutil.copy2(OUTPUT, "/usr/local/bin")
 
   if res == 0:
     print "done (%.2fs)" % (time.time() - starttime)

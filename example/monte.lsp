@@ -1,5 +1,5 @@
 (do
-  (= monte (fn (n) 
+  (= monte (fn (n)
   	(= inside 0)
   	(= counter 0)
   	(while (< counter n)
@@ -7,5 +7,5 @@
   	  (++ counter))
   	(/ (* 4 inside) n)))
 
-  	(= N (tonumber (or (nth 1 argv) 1e4)))
+  	(= N (number (or (nth 1 argv) 1e4)))
     (print (monte N)))

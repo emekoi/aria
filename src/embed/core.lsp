@@ -1,6 +1,7 @@
 (do
 
   ; core
+  
   (= caar (fn (x) (car (car x))))
   (= cadr (fn (x) (car (cdr x))))
   (= cddr (fn (x) (cdr (cdr x))))
@@ -70,7 +71,6 @@
 
   ; math
 
-
   (= pow (fn (x p)
     (= res x)
     (while (> p 1)
@@ -109,11 +109,6 @@
     (+ a (* (- b a) p))))
 
   (= clamp (fn (x a b) (or (and (< x a) a) (or (and (> x b) b) x))))
-
-  (= round (fn (x inc) 
-    (when inc (round (* (/ x inc) inc)))
-    (or (and (>= x 0) (floor (+ x 0.5))) (ceil (- x 0.5)))))
-
 
   ; loop
 

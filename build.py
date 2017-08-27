@@ -20,6 +20,8 @@ if platform.system() == "Windows":
   LINK += [ "mingw32" ]
   FLAGS += [ "-mwindows" ]
   DEFINE += [ "AR_DL_DLL" ]
+  # DEFINE += [ "AR_DL_DLOPEN" ]
+
   sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 if platform.system() == "Darwin":

@@ -32,6 +32,9 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "%s/%s.lsp",                             1 },
   { "%s/%s/init.lsp",                        1 },
   { "/usr/local/lib/aria/0.1/%s.so",         0 },
+  { "/usr/local/lib/aria/0.1/loadall.so",    0 },
+  { "%s/%s.so",                              1 },
+  { "/usr/local/lib/aria/0.1/%s.dll",        0 },
   { "/usr/local/lib/aria/0.1/loadall.dll",   0 },
   { "%s/%s.dll",                             1 },
   { NULL,                                    0 }
@@ -880,13 +883,14 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
  * Dynamic library loading
  *===========================================================================*/
 
+ #if __GNUC__
+   #define cast_func(t, p) (__extension__ (t) (p))
+ #else
+   #define cast_func(t, p) ((t) (p))
+ #endif
+
 #ifdef AR_DL_DLOPEN
   #include <dlfcn.h>
-  #if __GNUC__
-    #define cast_func(p) (__extension__ (ar_Load)(p))
-  #else
-    #define cast_func(p) ((ar_Load)(p))
-  #endif
 
   void ar_lib_close(ar_State *S, ar_Lib *lib) {
     UNUSED(S);
@@ -907,29 +911,20 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
 
     /* Open the library */
     void *data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
-    // if (data == NULL) ar_error_str(S, dlerror());
     if (!data || data == NULL) return NULL;
     lib->data = data;
 
-    /* Try to run the library's open function */
-    dlerror(); char *err;
-    char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
-    ar_Load open_lib = cast_func(dlsym(lib->data, r));
-    if ((err = dlerror()) != NULL) ar_error_str(S, err);
-    free(r); open_lib(S);
-
     /* Add library to library list and return it */
-    lib->next = S->libs;
-    S->libs = lib;
+    lib->next = S->libs; S->libs = lib;
     return lib;
   }
 
-  // static void *ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
-  //   dlerror(); char *err;
-  //   ar_Load fn = cast_func(dlsym(lib->data, sym));
-  //   if ((err = dlerror()) != NULL) ar_error_str(S, err);
-  //   return fn;
-  // }
+  static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+    dlerror(); char *err;
+    ar_CFunc fn = cast_func(ar_CFunc, dlsym(lib->data, sym));
+    if ((err = dlerror()) != NULL) ar_error_str(S, err);
+    return fn;
+  }
 
 #elif AR_DL_DLL
   #include <windows.h>
@@ -942,7 +937,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     int error = GetLastError();
     char buffer[128];
     if (FormatMessageA(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
-        NULL, error, 0, buffer, sizeof(buffer), NULL))
+      NULL, error, 0, buffer, sizeof(buffer)/sizeof(char), NULL))
       ar_error_str(S, buffer);
     else
       ar_error_str(S, "system error %d", error);
@@ -971,23 +966,16 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     if (!data || data == NULL) return NULL;
     lib->data = data;
 
-    /* Try to run the library's open function */
-    char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
-    ar_Load open_lib = GetProcAddress((HMODULE)lib->data, r);
-    if (GetLastError()) pusherror(S);
-    free(r); open_lib(S);
-
     /* Add library to library list and return it */
-    lib->next = S->libs;
-    S->libs = lib;
+    lib->next = S->libs; S->libs = lib;
     return lib;
   }
 
-  // static ar_CFunc *ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
-  //   ar_Load fn = GetProcAddress((HMODULE)lib->data, sym);
-  //   if (!fn || fn == NULL || GetLastError()) pusherror(S);
-  //   return fn;
-  // }
+  static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+    ar_CFunc fn = cast_func(ar_CFunc, GetProcAddress((HMODULE)lib->data, sym));
+    if (!fn || fn == NULL) pusherror(S);
+    return fn;
+  }
 
 #else
   #define DLMSG	"dynamic libraries not enabled; check your installation"
@@ -1003,11 +991,11 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     return NULL;
   }
 
-  // static ar_CFunc *ar_lib_sym(ar_State *S, void *lib, const char *sym) {
-  //   UNUSED(lib); UNUSED(sym);
-  //   ar_error_str(S, DLMSG);
-  //   return NULL;
-  // }
+  static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+    UNUSED(lib); UNUSED(sym);
+    ar_error_str(S, DLMSG);
+    return NULL;
+  }
 
 #endif
 
@@ -1151,6 +1139,7 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
   return res;
 }
 
+
 #ifdef _WIN32
 
 char *getcwd(char *buf, int len) {
@@ -1162,7 +1151,7 @@ char *getcwd(char *buf, int len) {
 
 #endif
 
-static ar_Value *p_require(ar_State *S, ar_Value *args, ar_Value *env) {
+static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
   ar_Value *res = NULL;
   res = ar_check(S, ar_eval(S, ar_nth(args, 0), env), AR_TSTRING);
   size_t found = 0;
@@ -1178,9 +1167,13 @@ static ar_Value *p_require(ar_State *S, ar_Value *args, ar_Value *env) {
     } else {
       sprintf(path, ar_SearchPaths[i].path, skipDotSlash(res->u.str.s));
     }
+
     lib = ar_lib_load(S, path, 1);
     if (lib) {
-      found = 1;
+      /* Try to run the library's open function */
+      char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
+      ar_CFunc open_lib = ar_lib_sym(S, lib, r);
+      free(r); open_lib(S, NULL); found = 1;
       break;
     }
 
@@ -1196,7 +1189,7 @@ static ar_Value *p_require(ar_State *S, ar_Value *args, ar_Value *env) {
   }
   if (!found) ar_error_str(S, "module \"%s\" not found", res->u.str.s);
 
-  return res;
+  return S->t;
 }
 
 
@@ -1211,7 +1204,7 @@ static ar_Value *f_type(ar_State *S, ar_Value *args) {
 }
 
 
-static ar_Value *f_tonumber(ar_State *S, ar_Value *args) {
+static ar_Value *f_number(ar_State *S, ar_Value *args) {
   return ar_new_number(S, ar_to_number(S, ar_nth(args, 0)));
 }
 
@@ -1490,14 +1483,14 @@ static void register_builtin(ar_State *S) {
     { "let",      p_let     },
     { "while",    p_while   },
     { "pcall",    p_pcall   },
-    { "require",  p_require },
+    { "import",   p_import  },
     { NULL, NULL }
   };
   /* Functions */
   struct { const char *name; ar_CFunc fn; } funcs[] = {
     { "list",     f_list    },
     { "type",     f_type    },
-    { "tonumber", f_tonumber},
+    { "number",   f_number  },
     { "print",    f_print   },
     { "read",     f_read    },
     { "parse",    f_parse   },

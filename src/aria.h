@@ -43,7 +43,6 @@ typedef struct ar_Lib ar_Lib;
 typedef void *(*ar_Alloc)(void *udata, void *ptr, size_t size);
 typedef ar_Value* (*ar_CFunc)(ar_State *S, ar_Value* args);
 typedef ar_Value* (*ar_Prim)(ar_State *S, ar_Value* args, ar_Value *env);
-typedef int (*ar_Load)(ar_State *S);
 
 
 struct ar_Value {
@@ -183,6 +182,6 @@ ar_Value *ar_do_file(ar_State *S, const char *filename);
 
 void ar_lib_close(ar_State *S, ar_Lib *lib);
 ar_Lib *ar_lib_load(ar_State *S, char *path, int global);
-// static void *ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
+static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
 
 #endif

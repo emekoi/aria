@@ -71,11 +71,19 @@
 
   ; math
 
-  (= pow (fn (x p)
+  (= pow* (fn (x p)
     (= res x)
     (while (> p 1)
       (= x (* x x))
       (-- p)) x))
+
+  (= pow (fn (x p)
+    (let (cache nil)
+      (let (res (alget x cache))
+        (unless res
+          (= res (cons x (pow* x p)))
+          (push res cache))
+        (cdr res)))))
 
   (= sqr (fn (x) (pow x 2)))
 

@@ -38,6 +38,7 @@
 
 # Debug files
 *.dSYM/
+*.exe.stackdump
 *.su
 *.idb
 *.pdb

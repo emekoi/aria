@@ -33,3 +33,6 @@ the terms of the MIT license. See [LICENSE](LICENSE) for details.
 * https://millcomputing.com/topic/threadscoroutines/
 * https://docs.rs/crate/rustyline/1.0.0/source/src/tty/unix.rs
 * https://github.com/kroitor/asciichart/blob/master/asciichart.js
+
+## TODO
+* add loading from any shared lib; search for a aria symbol then dynamic symbol

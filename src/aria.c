@@ -1185,6 +1185,12 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
+static ar_Value *f_gc(ar_State *S, ar_Value *args) {
+  UNUSED(args); ar_gc(S);
+  return NULL;
+}
+
+
 static ar_Value *f_list(ar_State *S, ar_Value *args) {
   UNUSED(S);
   return args;
@@ -1480,6 +1486,7 @@ static void register_builtin(ar_State *S) {
   };
   /* Functions */
   struct { const char *name; ar_CFunc fn; } funcs[] = {
+    { "gc",       f_gc      },
     { "list",     f_list    },
     { "type",     f_type    },
     { "number",   f_number  },

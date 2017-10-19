@@ -25,34 +25,25 @@ struct ar_Lib {
 #ifdef _WIN32
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/share/aria/0.1/%s.lsp",      0 },
-  { "/usr/local/share/aria/0.1/%s/init.lsp", 0 },
-  { "/usr/local/lib/aria/0.1/%s.lsp",        0 },
-  { "/usr/local/lib/aria/0.1/%s/init.lsp",   0 },
-  { "%s/%s.lsp",                             1 },
-  { "%s/%s/init.lsp",                        1 },
-  { "/usr/local/lib/aria/0.1/%s.so",         0 },
-  { "/usr/local/lib/aria/0.1/loadall.so",    0 },
-  { "%s/%s.so",                              1 },
-  { "/usr/local/lib/aria/0.1/%s.dll",        0 },
-  { "/usr/local/lib/aria/0.1/loadall.dll",   0 },
-  { "%s/%s.dll",                             1 },
-  { NULL,                                    0 }
+  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
+  { "/usr/local/share/aria/" AR_VERSION "/%s.dll", 0 },
+  { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",   0 },
+  { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
+  { "%s/%s.dll",                       1 },
+  { "%s/%s.lsp",                       1 },
+  { NULL,                              0 }
 };
 
 #else
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/share/aria/0.1/%s.lsp",      0 },
-  { "/usr/local/share/aria/0.1/%s/init.lsp", 0 },
-  { "/usr/local/lib/aria/0.1/%s.lsp",        0 },
-  { "/usr/local/lib/aria/0.1/%s/init.lsp",   0 },
-  { "%s/%s.lsp",                             1 },
-  { "%s/%s/init.lsp",                        1 },
-  { "/usr/local/lib/aria/0.1/%s.so",         0 },
-  { "/usr/local/lib/aria/0.1/loadall.so",    0 },
-  { "%s/%s.so",                              1 },
-  { NULL,                                    0 }
+  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
+  { "/usr/local/share/aria/" AR_VERSION "/%s.so",  0 },
+  { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",   0 },
+  { "/usr/local/lib/aria/" AR_VERSION "/%s.so",    0 },
+  { "%s/%s.lsp",                       1 },
+  { "%s/%s.so",                        1 },
+  { NULL,                              0 }
 };
 
 #endif
@@ -978,6 +969,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
   }
 
 #else
+
   #define DLMSG	"dynamic libraries not enabled; check your installation"
 
   void ar_lib_close(ar_State *S, ar_Lib *lib) {
@@ -1528,12 +1520,20 @@ static void register_builtin(ar_State *S) {
     { "exit",     f_exit    },
     { NULL, NULL }
   };
+  /* Globals */
+  struct { const char *name; void *v; } globals[] = {
+    { "VERSION", AR_VERSION },
+    { NULL, NULL }
+  };
   /* Register */
   for (i = 0; prims[i].name; i++) {
     ar_bind_global(S, prims[i].name, ar_new_prim(S, prims[i].fn));
   }
   for (i = 0; funcs[i].name; i++) {
     ar_bind_global(S, funcs[i].name, ar_new_cfunc(S, funcs[i].fn));
+  }
+  for (i = 0; globals[i].name; i++) {
+    ar_bind_global(S, globals[i].name, ar_new_string(S, globals[i].v));
   }
 }
 
@@ -1743,7 +1743,6 @@ int main(int argc, char **argv) {
     /* Init REPL */
     ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
     #include "repl_lsp.h"
-    printf("aria " AR_VERSION "\n");
     ar_do_string(S, repl_lsp);
 
   } else {

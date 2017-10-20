@@ -16,13 +16,11 @@ DEFINE = [ "AR_STANDALONE" ]
 EXTRA = [  ]
 
 if platform.system() == "Windows":
+  sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
   OUTPUT += ".exe"
   LINK += [ "mingw32" ]
-  FLAGS += [ "-mwindows" ]
   DEFINE += [ "AR_DL_DLL" ]
   # DEFINE += [ "AR_DL_DLOPEN" ]
-
-  sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 if platform.system() == "Darwin":
   SOURCE += [ "src/lib/linenoise/*.c" ]

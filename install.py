@@ -15,7 +15,11 @@ INSTALLS = [
 if platform.system() == "Windows":
   sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
   OUTPUT += ".exe"
-  INSTALL = "cp"
+  # INSTALL = "cp"
+  INSTALLS = [
+    ["bin/aria",   755, "/c/MinGW/bin"],
+    ["src/aria.h", 644, "/c/MinGW/include/aria"],
+  ]
 
 
 def fmt(fmt, dic):

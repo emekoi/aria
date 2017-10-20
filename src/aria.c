@@ -30,8 +30,8 @@ struct ar_Lib {
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
-  { "/usr/local/share/aria/" AR_VERSION "/%s.dll", 0 },
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",   0 },
+  // { "/usr/local/share/aria/" AR_VERSION "/%s.dll", 0 },
+  // { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",   0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
   { "%s/%s.dll",                       1 },
   { "%s/%s.lsp",                       1 },
@@ -42,14 +42,11 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "/usr/local/share/aria/" AR_VERSION "/%s.lsp",   0 },
-  { "/usr/local/share/aria/" AR_VERSION "/%s.so",    0 },
-  { "/usr/local/share/aria/" AR_VERSION "/%s.dylib", 0 },
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",     0 },
+  // { "/usr/local/share/aria/" AR_VERSION "/%s.so",    0 },
+  // { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",     0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.so",      0 },
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.dylib",   0 },
   { "%s/%s.lsp",                       1 },
   { "%s/%s.so",                        1 },
-  { "%s/%s.dylib",                     1 },
   { NULL,                              0 }
 };
 
@@ -1174,7 +1171,7 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
       char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
       ar_CFunc open_lib = ar_lib_sym(S, lib, r);
       open_lib(S, NULL); free(r);
-      found = 1; 
+      found = 1;
       break;
     }
 

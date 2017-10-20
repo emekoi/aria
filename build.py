@@ -102,8 +102,9 @@ def main():
   res = os.system(cmd)
 
   if build == "release":
-    print "stripping..."
-    os.system("strip %s" % OUTPUT)
+    if os.path.isfile(OUTPUT):
+      print "stripping..."
+      os.system("strip %s" % OUTPUT)
 
   print "clearing up..."
   clearup()

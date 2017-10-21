@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 rxi
+ * Copyright (c) 2017 emekoi
  *
  * This library is free software; you can redistribute it and/or modify it
  * under the terms of the MIT license. See LICENSE for details.
@@ -24,8 +24,6 @@
 #else
   #include <sys/time.h>
 #endif
-
-#include "util.h"
 
 #define AR_VERSION "0.1.1"
 #define AR_POF "ar_open"
@@ -133,6 +131,9 @@ enum {
     }                                                     \
   } while (0)
 
+void *ar_alloc(ar_State *S, void *ptr, size_t n);
+void ar_free(ar_State *S, void *ptr);
+
 ar_State *ar_new_state(ar_Alloc alloc, void *udata);
 void ar_close_state(ar_State *S);
 ar_CFunc ar_at_panic(ar_State *S, ar_CFunc fn);
@@ -145,6 +146,7 @@ ar_Value *ar_new_list(ar_State *S, size_t n, ...);
 ar_Value *ar_new_number(ar_State *S, double n);
 ar_Value *ar_new_udata(ar_State *S, void *ptr, ar_CFunc gc, ar_CFunc mark);
 ar_Value *ar_new_stringl(ar_State *S, const char *str, size_t len);
+ar_Value *ar_new_stringf(ar_State *S, const char *str, ...);
 ar_Value *ar_new_string(ar_State *S, const char *str);
 ar_Value *ar_new_symbol(ar_State *S, const char *name);
 ar_Value *ar_new_cfunc(ar_State *S, ar_CFunc fn);
@@ -182,6 +184,6 @@ ar_Value *ar_do_file(ar_State *S, const char *filename);
 
 void ar_lib_close(ar_State *S, ar_Lib *lib);
 ar_Lib *ar_lib_load(ar_State *S, char *path, int global);
-static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
+ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
 
 #endif

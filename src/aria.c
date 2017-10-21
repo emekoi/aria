@@ -1,18 +1,16 @@
 /**
- * Copyright (c) 2016 rxi
+ * Copyright (c) 2017 emekoi
  *
  * This library is free software; you can redistribute it and/or modify it
  * under the terms of the MIT license. See LICENSE for details.
  */
 
+#include "util.h"
 #include "aria.h"
 
 #define MAX_STACK 1024
 #define CHUNK_LEN 1024
 
-/*
-http://www.cs.uleth.ca/~holzmann/C/system/shell_commands.html
-*/
 
 struct ar_Chunk {
   ar_Value values[CHUNK_LEN];
@@ -30,8 +28,6 @@ struct ar_Lib {
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
-  // { "/usr/local/share/aria/" AR_VERSION "/%s.dll", 0 },
-  // { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",   0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
   { "%s/%s.dll",                       1 },
   { "%s/%s.lsp",                       1 },
@@ -42,8 +38,6 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "/usr/local/share/aria/" AR_VERSION "/%s.lsp",   0 },
-  // { "/usr/local/share/aria/" AR_VERSION "/%s.so",    0 },
-  // { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp",     0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.so",      0 },
   { "%s/%s.lsp",                       1 },
   { "%s/%s.so",                        1 },
@@ -52,13 +46,13 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
 
 #endif
 
-static void *zrealloc(ar_State *S, void *ptr, size_t n) {
+void *ar_alloc(ar_State *S, void *ptr, size_t n) {
   void *p = S->alloc(S->udata, ptr, n);
   if (!p) ar_error(S, S->oom_error);
   return p;
 }
 
-static void zfree(ar_State *S, void *ptr) {
+void ar_free(ar_State *S, void *ptr) {
   S->alloc(S, ptr, 0);
 }
 
@@ -71,7 +65,7 @@ static void push_value_to_stack(ar_State *S, ar_Value *v) {
   /* Expand stack's capacity? */
   if (S->gc_stack_idx == S->gc_stack_cap) {
     int n = (S->gc_stack_cap << 1) | !S->gc_stack_cap;
-    S->gc_stack = zrealloc(S, S->gc_stack, n * sizeof(*S->gc_stack));
+    S->gc_stack = ar_alloc(S, S->gc_stack, n * sizeof(*S->gc_stack));
     S->gc_stack_cap = n;
   }
   /* Push value */
@@ -89,7 +83,7 @@ static ar_Value *new_value(ar_State *S, int type) {
   /* No values in pool? Create and init new chunk */
   if (!S->gc_pool) {
     int i;
-    ar_Chunk *c = zrealloc(S, NULL, sizeof(*c));
+    ar_Chunk *c = ar_alloc(S, NULL, sizeof(*c));
     c->next = S->gc_chunks;
     S->gc_chunks = c;
     /* Init all chunk's values and link them together, set the currently-empty
@@ -160,12 +154,37 @@ ar_Value *ar_new_udata(ar_State *S, void *ptr, ar_CFunc gc, ar_CFunc mark) {
 ar_Value *ar_new_stringl(ar_State *S, const char *str, size_t len) {
   ar_Value *v = new_value(S, AR_TSTRING);
   v->u.str.s = NULL;
-  v->u.str.s = zrealloc(S, NULL, len + 1);
+  v->u.str.s = ar_alloc(S, NULL, len + 1);
   v->u.str.s[len] = '\0';
   if (str) {
     memcpy(v->u.str.s, str, len);
   }
   v->u.str.len = len;
+  return v;
+}
+
+
+ar_Value *ar_new_stringf(ar_State *S, const char *str, ...) {
+  if (str == NULL) return NULL;
+  va_list arg, tmp;
+  va_start(arg, str);
+  ar_Value *v = ar_new_stringl(S, NULL, 0);
+  /* create a copy of the list of args */
+  va_copy(tmp, arg);
+  /* get length string should be */
+  int len = vsnprintf(v->u.str.s, 0, str, tmp);
+  /* toss temp copy */
+  va_end(tmp);
+  /* something is wrong... */
+  if (len < 0) return NULL;
+  /* resize the string */
+  v->u.str.s = ar_alloc(S, v->u.str.s, len + 1);
+  v->u.str.s[len] = '\0';
+  v->u.str.len = len;
+  /* format the string string in ar_Value *v */
+  vsnprintf(v->u.str.s, len + 1, str, arg);
+  /* toss args */
+  va_end(arg);
   return v;
 }
 
@@ -446,7 +465,7 @@ static void gc_free(ar_State *S, ar_Value *v) {
   switch (v->type) {
     case AR_TSYMBOL:
     case AR_TSTRING:
-      zfree(S, v->u.str.s);
+      ar_free(S, v->u.str.s);
       break;
     case AR_TUDATA:
       if (v->u.udata.gc) v->u.udata.gc(S, v);
@@ -469,11 +488,11 @@ static void gc_deinit(ar_State *S) {
     for (i = 0; i < CHUNK_LEN; i++) {
       gc_free(S, c->values + i);
     }
-    zfree(S, c);
+    ar_free(S, c);
     c = next;
   }
   /* Free stack */
-  zfree(S, S->gc_stack);
+  ar_free(S, S->gc_stack);
 }
 
 
@@ -901,7 +920,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     }
 
     /* Create and name library */
-    ar_Lib *lib = zrealloc(S, NULL, sizeof(*lib));
+    ar_Lib *lib = ar_alloc(S, NULL, sizeof(*lib));
     lib->name = basename(path);
 
     /* Open the library */
@@ -914,7 +933,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     return lib;
   }
 
-  static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+  ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
     dlerror(); char *err;
     ar_CFunc fn = cast_func(ar_CFunc, dlsym(lib->data, sym));
     if ((err = dlerror()) != NULL) ar_error_str(S, err);
@@ -953,7 +972,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
       l = l->next;
     }
 
-    ar_Lib *lib = zrealloc(S, NULL, sizeof(*lib));
+    ar_Lib *lib = ar_alloc(S, NULL, sizeof(*lib));
     lib->name = basename(path);
 
     /* Opening the library */
@@ -966,7 +985,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     return lib;
   }
 
-  static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+  ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
     ar_CFunc fn = cast_func(ar_CFunc, GetProcAddress((HMODULE)lib->data, sym));
     if (!fn || fn == NULL) pusherror(S);
     return fn;
@@ -974,7 +993,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
 
 #else
 
-  #define DLMSG	"dynamic libraries not enabled; check your installation"
+  #define DLMSG "dynamic libraries not enabled; check your installation"
 
   void ar_lib_close(ar_State *S, ar_Lib *lib) {
     UNUSED(lib); UNUSED(S);
@@ -987,7 +1006,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     return NULL;
   }
 
-  static ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
+  ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
     UNUSED(lib); UNUSED(sym);
     ar_error_str(S, DLMSG);
     return NULL;
@@ -1535,7 +1554,7 @@ static void register_builtin(ar_State *S) {
     { NULL, NULL }
   };
   /* Globals */
-  struct { const char *name; void *v; } globals[] = {
+  struct { const char *name; void *val; } globals[] = {
     { "VERSION", AR_VERSION },
     { NULL, NULL }
   };
@@ -1547,7 +1566,7 @@ static void register_builtin(ar_State *S) {
     ar_bind_global(S, funcs[i].name, ar_new_cfunc(S, funcs[i].fn));
   }
   for (i = 0; globals[i].name; i++) {
-    ar_bind_global(S, globals[i].name, ar_new_string(S, globals[i].v));
+    ar_bind_global(S, globals[i].name, ar_new_string(S, globals[i].val));
   }
 }
 
@@ -1606,11 +1625,11 @@ void ar_close_state(ar_State *S) {
   while (lib) {
     next = lib->next;
     ar_lib_close(S, lib);
-    zfree(S, lib);
+    ar_free(S, lib);
     lib = next;
   }
 
-  zfree(S, S);
+  ar_free(S, S);
 }
 
 

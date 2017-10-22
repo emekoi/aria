@@ -1243,8 +1243,18 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
 }
 
 
-static char *parse_format(ar_State *S, char c, ar_Value *v) {
-  return ar_to_string(S, v);
+static ar_Value *parse_format(ar_State *S, char *c, ar_Value *args) {
+  ar_Value *res;
+  /* use ar_check */
+  size_t type;
+  switch (*(++c)) {
+    case '%': return ar_new_string(S, "%");
+    case 's': type = AR_TSTRING; break;
+    case 'd': type = AR_TNUMBER; break;
+  }
+  if (ar_type(args) != type) ar_error_str(S, "wrong type for '%%c'", *c);
+  ar
+  ar_error_str(S, "invalid option '%c'", *c);
 }
 
 
@@ -1255,9 +1265,14 @@ static ar_Value *f_format(ar_State *S, ar_Value *args) {
   ar_Value *res = NULL, **last = &res;
 
   while (*cur) {
-    if (*cur == '%' && *(cur + 1) != '%') {
-      char *res = parse_format(S, *(++cur), args);
-      // last = ar_append_tail(S, last, ar_new_string(S, res));
+    if (*cur == '%') {
+      size_t sz = (size_t)(cur - str);
+      char buf[sz];
+      strncpy(buf, str, len);
+      buf[len] = '\0';
+      last = ar_append_tail(S, last, ar_new_string(S, buf));
+      char *res = parse_format(S, cur, args); args = ar_cdr(args);
+      last = ar_append_tail(S, last, ar_new_string(S, res));
       *cur++;
     }
     printf("%c", *cur);

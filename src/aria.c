@@ -1238,8 +1238,34 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
     printf(" ");
     args = ar_cdr(args);
   }
-  printf("\n");
+  fwrite("\n", 1, 1, stdout);
   return ar_car(args);
+}
+
+
+static char *parse_format(ar_State *S, char c, ar_Value *v) {
+  return ar_to_string(S, v);
+}
+
+
+static ar_Value *f_format(ar_State *S, ar_Value *args) {
+  size_t len;
+  const char *str = ar_to_stringl(S, ar_car(args), &len);
+  const char *cur = str;
+  ar_Value *res = NULL, **last = &res;
+
+  while (*cur) {
+    if (*cur == '%' && *(cur + 1) != '%') {
+      char *res = parse_format(S, *(++cur), args);
+      // last = ar_append_tail(S, last, ar_new_string(S, res));
+      *cur++;
+    }
+    printf("%c", *cur);
+    *cur++;
+  }
+  printf("\n");
+  // return join_list_of_strings(S, list);
+  return NULL;
 }
 
 
@@ -1513,6 +1539,7 @@ static void register_builtin(ar_State *S) {
     { "type",     f_type    },
     { "number",   f_number  },
     { "print",    f_print   },
+    { "format",   f_format  },
     { "read",     f_read    },
     { "parse",    f_parse   },
     { "error",    f_error   },

@@ -1167,47 +1167,43 @@ char *getcwd(char *buf, int len) {
 #endif
 
 static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
-  ar_Value *res = NULL;
-  res = ar_check(S, ar_eval(S, ar_nth(args, 0), env), AR_TSTRING);
-  size_t found = 0;
-
-  /* Check all search paths */
-  for (size_t i = 0; ar_SearchPaths[i].path; i++) {
-    /* Check for C libaries */
-    ar_Lib *lib;
-    char path[4096];
-    if (ar_SearchPaths[i].local) {
-      char cwd[1024];
-      sprintf(path, ar_SearchPaths[i].path, getcwd(cwd, sizeof(cwd)), skipDotSlash(res->u.str.s));
-    } else {
-      sprintf(path, ar_SearchPaths[i].path, skipDotSlash(res->u.str.s));
+  ar_Value *res = ar_check(S, ar_eval(S, ar_nth(args, 0), env), AR_TSTRING);
+  for (int i = 0; ar_nth(args, i); i++) {
+    size_t found = 0;
+    /* Check all search paths */
+    for (size_t i = 0; ar_SearchPaths[i].path; i++) {
+      /* Check for C libaries */
+      char path[4096];
+      if (ar_SearchPaths[i].local) {
+        char cwd[1024];
+        sprintf(path, ar_SearchPaths[i].path, getcwd(cwd, sizeof(cwd)), skipDotSlash(res->u.str.s));
+      } else {
+        sprintf(path, ar_SearchPaths[i].path, skipDotSlash(res->u.str.s));
+      }
+      ar_Lib *lib = ar_lib_load(S, path, 1);
+      if (lib) {
+        /* Try to run the library's open function */
+        char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
+        ar_CFunc open_lib = ar_lib_sym(S, lib, r);
+        open_lib(S, NULL); free(r);
+        found = 1;
+        break;
+      }
+      /* Check for aria libraries */
+      ar_try(S, err, {
+        ar_do_file(S, path);
+        found = 1;
+      }, {
+        found = 0;
+        UNUSED(err);
+      });
+      if (found) break;
     }
-
-    lib = ar_lib_load(S, path, 1);
-
-    if (lib) {
-      /* Try to run the library's open function */
-      char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
-      ar_CFunc open_lib = ar_lib_sym(S, lib, r);
-      open_lib(S, NULL); free(r);
-      found = 1;
-      break;
-    }
-
-    /* Check for aria libraries */
-    ar_try(S, err, {
-      ar_do_file(S, path);
-      found = 1;
-    }, {
-      found = 0;
-      UNUSED(err);
-    });
-    if (found) break;
+    if (!found)
+      ar_error_str(S, "module \"%s\" not found", res->u.str.s);
   }
-
-  if (!found) ar_error_str(S, "module \"%s\" not found", res->u.str.s);
-
-  return NULL;
+  if (ar_nth(args, 1) != NULL) p_import(S, ar_cdr(args), env);
+  return S->t;
 }
 
 
@@ -1760,6 +1756,7 @@ int main(int argc, char **argv) {
   /* Embed standard library */
   #include "core_lsp.h"
   #include "class_lsp.h"
+
   struct {
     const char *name, *data;
   } items[] = {

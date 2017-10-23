@@ -1243,44 +1243,77 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
 }
 
 
-static ar_Value *parse_format(ar_State *S, char *c, ar_Value *args) {
-  ar_Value *res;
-  /* use ar_check */
-  size_t type;
-  switch (*(++c)) {
-    case '%': return ar_new_string(S, "%");
-    case 's': type = AR_TSTRING; break;
-    case 'd': type = AR_TNUMBER; break;
-  }
-  if (ar_type(args) != type) ar_error_str(S, "wrong type for '%%c'", *c);
-  ar
-  ar_error_str(S, "invalid option '%c'", *c);
+static int is_alpha(char c) {
+  return (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z') ||
+         (c == '_');
 }
 
+
+static ar_Value *parse_format(ar_State *S, const char *c, ar_Value *args) {
+  int num = round(ar_to_number(S, ar_car(args)));
+  switch (*c++) {
+    case 'c': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%c", (unsigned int)num);
+    case 'd': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%d", num);
+    case 'o': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%o", num);
+    case 'u': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%u", (unsigned int)num);
+    case 'x': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%x", num);
+    case 'X': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%X", num);
+    case 'e': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%e", ar_to_number(S, ar_car(args)));
+    case 'E': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%E", ar_to_number(S, ar_car(args)));
+    case 'f': 
+      ar_check_number(S, ar_car(args));
+      return ar_new_stringf(S, "%f", ar_to_number(S, ar_car(args)));
+    case 'q': 
+      return ar_new_stringf(S, "%s", ar_to_string_value(S, ar_car(args), 1)->u.str.s);
+    case 's':
+      return ar_new_stringf(S, "%s", ar_to_string_value(S, ar_car(args), 0)->u.str.s);
+    default: 
+      if (is_alpha(*c))
+        ar_error_str(S, "invalid option '%c'", *c);
+      else
+        ar_error_str(S, "expected option");
+  }
+  return NULL;
+}
+
+
+#define AR_ESC '%'
 
 static ar_Value *f_format(ar_State *S, ar_Value *args) {
   size_t len;
   const char *str = ar_to_stringl(S, ar_car(args), &len);
-  const char *cur = str;
+  const char *str_end = str + len;
   ar_Value *res = NULL, **last = &res;
-
-  while (*cur) {
-    if (*cur == '%') {
-      size_t sz = (size_t)(cur - str);
-      char buf[sz];
-      strncpy(buf, str, len);
-      buf[len] = '\0';
+  while (str < str_end) {
+    if (*str != AR_ESC) {
+      char buf[2]; buf[0] = *str++; buf[1] = '\0';
       last = ar_append_tail(S, last, ar_new_string(S, buf));
-      char *res = parse_format(S, cur, args); args = ar_cdr(args);
-      last = ar_append_tail(S, last, ar_new_string(S, res));
-      *cur++;
+    } else if (*++str == AR_ESC) {
+      char buf[2]; buf[0] = *str++; buf[1] = '\0';
+      last = ar_append_tail(S, last, ar_new_string(S, buf));
+    } else {
+      last = ar_append_tail(S, last, parse_format(S, str++, ar_cdr(args)));
+      args = ar_cdr(args);
     }
-    printf("%c", *cur);
-    *cur++;
   }
-  printf("\n");
-  // return join_list_of_strings(S, list);
-  return NULL;
+  return join_list_of_strings(S, res);
 }
 
 

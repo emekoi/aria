@@ -1250,40 +1250,27 @@ static int is_alpha(char c) {
 }
 
 
+#define format(S, c, v) ar_new_stringf(S, "%"c, v)
+
 static ar_Value *parse_format(ar_State *S, const char *c, ar_Value *args) {
   int num = round(ar_to_number(S, ar_car(args)));
   switch (*c++) {
-    case 'c': 
+    case 'c': case 'u': 
       ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%c", (unsigned int)num);
-    case 'd': 
+      return format(S, *c, (unsigned int)num);
+    case 'i': case 'd': case 'x': 
+    case 'X': case 'o':
       ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%d", num);
-    case 'o': 
+      return format(S, *c, num);
+    case 'e': case 'E': case 'f': case 'g': 
       ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%o", num);
-    case 'u': 
-      ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%u", (unsigned int)num);
-    case 'x': 
-      ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%x", num);
-    case 'X': 
-      ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%X", num);
-    case 'e': 
-      ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%e", ar_to_number(S, ar_car(args)));
-    case 'E': 
-      ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%E", ar_to_number(S, ar_car(args)));
-    case 'f': 
-      ar_check_number(S, ar_car(args));
-      return ar_new_stringf(S, "%f", ar_to_number(S, ar_car(args)));
+      return format(S, *c, ar_to_number(S, ar_car(args)));
+    case 'p':
+      return format(S, *c, ar_car(args));
     case 'q': 
-      return ar_new_stringf(S, "%s", ar_to_string_value(S, ar_car(args), 1)->u.str.s);
+      return format(S, *c, ar_to_string_value(S, ar_car(args), 1)->u.str.s);
     case 's':
-      return ar_new_stringf(S, "%s", ar_to_string_value(S, ar_car(args), 0)->u.str.s);
+      return format(S, *c, ar_to_string_value(S, ar_car(args), 0)->u.str.s);
     default: 
       if (is_alpha(*c))
         ar_error_str(S, "invalid option '%c'", *c);
@@ -1314,6 +1301,11 @@ static ar_Value *f_format(ar_State *S, ar_Value *args) {
     }
   }
   return join_list_of_strings(S, res);
+}
+
+
+static ar_Value *f_printf(ar_State *S, ar_Value *args) {
+  return f_print(S, f_format(S, args));
 }
 
 
@@ -1588,6 +1580,7 @@ static void register_builtin(ar_State *S) {
     { "number",   f_number  },
     { "print",    f_print   },
     { "format",   f_format  },
+    { "printf",   f_printf  },
     { "read",     f_read    },
     { "parse",    f_parse   },
     { "error",    f_error   },

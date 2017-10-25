@@ -1251,35 +1251,35 @@ static int is_alpha(char c) {
 
 
 #define format(S, c, v) \
-  char buf[2]; buf[0] = '%'; buf[1] = c; \
+  char buf[3]; buf[0] = '%'; buf[1] = c; buf[2] = '\0';\
   return ar_new_stringf(S, buf, v)
 
 static ar_Value *parse_format(ar_State *S, const char c, ar_Value *args) {
   int num = round(ar_to_number(S, ar_car(args)));
   switch (c) {
-    case 'c': case 'u': { 
+    case 'c': case 'u': {
       ar_check_number(S, ar_car(args));
       format(S, c, (unsigned int)num);
-    } 
-    case 'i': case 'd': case 'x': 
+    }
+    case 'i': case 'd': case 'x':
     case 'X': case 'o':{
       ar_check_number(S, ar_car(args));
       format(S, c, num);
     }
-    case 'e': case 'E': case 'f': case 'g':{ 
+    case 'e': case 'E': case 'f': case 'g':{
       ar_check_number(S, ar_car(args));
       format(S, c, ar_to_number(S, ar_car(args)));
     }
     case 'p':{
       format(S, c, ar_car(args));
     }
-    case 'q':{ 
-      format(S, c, ar_to_string_value(S, ar_car(args), 1)->u.str.s);
+    case 'q':{
+      format(S, 's', ar_to_string_value(S, ar_car(args), 1)->u.str.s);
     }
     case 's':{
       format(S, c, ar_to_string_value(S, ar_car(args), 0)->u.str.s);
     }
-    default: 
+    default:
       if (is_alpha(c))
         ar_error_str(S, "invalid option '%c'", c);
       else

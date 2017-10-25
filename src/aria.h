@@ -29,6 +29,7 @@
 #define AR_POF "ar_open"
 #define AR_OFSEP "_"
 #define AR_OFN AR_POF AR_OFSEP
+#define AR_ESC '%'
 
 
 typedef unsigned char uchar;

@@ -1250,38 +1250,44 @@ static int is_alpha(char c) {
 }
 
 
-#define format(S, c, v) ar_new_stringf(S, "%"c, v)
+#define format(S, c, v) \
+  char buf[2]; buf[0] = '%'; buf[1] = c; \
+  return ar_new_stringf(S, buf, v)
 
-static ar_Value *parse_format(ar_State *S, const char *c, ar_Value *args) {
+static ar_Value *parse_format(ar_State *S, const char c, ar_Value *args) {
   int num = round(ar_to_number(S, ar_car(args)));
-  switch (*c++) {
-    case 'c': case 'u': 
+  switch (c) {
+    case 'c': case 'u': { 
       ar_check_number(S, ar_car(args));
-      return format(S, *c, (unsigned int)num);
+      format(S, c, (unsigned int)num);
+    } 
     case 'i': case 'd': case 'x': 
-    case 'X': case 'o':
+    case 'X': case 'o':{
       ar_check_number(S, ar_car(args));
-      return format(S, *c, num);
-    case 'e': case 'E': case 'f': case 'g': 
+      format(S, c, num);
+    }
+    case 'e': case 'E': case 'f': case 'g':{ 
       ar_check_number(S, ar_car(args));
-      return format(S, *c, ar_to_number(S, ar_car(args)));
-    case 'p':
-      return format(S, *c, ar_car(args));
-    case 'q': 
-      return format(S, *c, ar_to_string_value(S, ar_car(args), 1)->u.str.s);
-    case 's':
-      return format(S, *c, ar_to_string_value(S, ar_car(args), 0)->u.str.s);
+      format(S, c, ar_to_number(S, ar_car(args)));
+    }
+    case 'p':{
+      format(S, c, ar_car(args));
+    }
+    case 'q':{ 
+      format(S, c, ar_to_string_value(S, ar_car(args), 1)->u.str.s);
+    }
+    case 's':{
+      format(S, c, ar_to_string_value(S, ar_car(args), 0)->u.str.s);
+    }
     default: 
-      if (is_alpha(*c))
-        ar_error_str(S, "invalid option '%c'", *c);
+      if (is_alpha(c))
+        ar_error_str(S, "invalid option '%c'", c);
       else
         ar_error_str(S, "expected option");
   }
   return NULL;
 }
 
-
-#define AR_ESC '%'
 
 static ar_Value *f_format(ar_State *S, ar_Value *args) {
   size_t len;
@@ -1296,7 +1302,7 @@ static ar_Value *f_format(ar_State *S, ar_Value *args) {
       char buf[2]; buf[0] = *str++; buf[1] = '\0';
       last = ar_append_tail(S, last, ar_new_string(S, buf));
     } else {
-      last = ar_append_tail(S, last, parse_format(S, str++, ar_cdr(args)));
+      last = ar_append_tail(S, last, parse_format(S, *str++, ar_cdr(args)));
       args = ar_cdr(args);
     }
   }

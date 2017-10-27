@@ -5,7 +5,8 @@
   (= onData (fn ()
     (printf "data from %s:%d -> %s" 
       (net-getAddress stream) 
-      (net-getPort stream) data)))
+      (net-getPort stream) data)
+    (net-write stream data)))
 
   (= onError (fn ()
     (printf "error from %s:%d -> %s" 
@@ -13,7 +14,7 @@
       (net-getPort stream) msg)))
 
   (= onAccept (fn ()
-    (net-addListener remote "line" onLine remote)
+    (net-addListener remote "data" onData remote)
     (printf "accepted connection from %s:%d" 
       (net-getAddress remote) 
       (net-getPort remote))))

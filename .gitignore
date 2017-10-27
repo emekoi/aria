@@ -61,3 +61,5 @@ bin/
 *.tmp
 *.pyc
 .DS_Store
+.tup/
+build-*/

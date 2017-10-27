@@ -1,0 +1,38 @@
+.gitignore
+
+CFLAGS += -c -Wall -Wextra --std=c99 -pedantic -fno-strict-aliasing
+DEFINE += AR_STANDALONE
+INCLUDE += .tempsrc
+LFLAGS += -shared
+LINK += -lm
+
+ifneq (@(DEBUG),true)
+  CFLAGS += -O3
+else
+  CFLAGS += -g
+endif
+
+ifeq (@(TUP_PLATFORM),win32)
+  LINK += -lmingw32
+  OBJ_LOADER += AR_DL_DLL
+  SUFFIX += .exe
+  SO_SUFFIX += .dll
+else
+  LINK += -ldl
+  OBJ_LOADER += AR_DL_DLOPEN
+  SO_SUFFIX = .so
+endif
+
+ifneq (@(TUP_PLATFORM),macosx)
+  LFLAGS += -Wl,-soname,
+else
+  LFLAGS += -Wl,-install_name,
+  SO_SUFFIX = .dylib
+endif
+
+!COMPILE = |> gcc $(CFLAGS) %f -o %o |> 
+!LINK_EXEC = |> gcc %f -o %o $(LINK) |> $(BINARY)$(SUFFIX)
+!LINK_SOBJ = |> gcc $(LFLAGS)%o %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
+!SETUP = |> mkdir -p |>
+!INSTALL_FILE = |> install -m644 %f |>
+!INSTALL_EXEC = |> install -m755 %f |>

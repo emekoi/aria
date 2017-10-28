@@ -1,15 +1,17 @@
 .gitignore
 
 CFLAGS += -c -Wall -Wextra --std=c99 -pedantic -fno-strict-aliasing
+CFLAGS += -finline-functions -funroll-loops
 DEFINE += AR_STANDALONE
 INCLUDE += .tempsrc
 LFLAGS += -shared
 LINK += -lm
 
 ifneq (@(DEBUG),true)
-  CFLAGS += -O3
+  # CFLAGS += -O3
+  CFLAGS += -Ofast
 else
-  CFLAGS += -g
+  CFLAGS += -g -Og
 endif
 
 ifeq (@(TUP_PLATFORM),win32)
@@ -30,9 +32,16 @@ else
   SO_SUFFIX = .dylib
 endif
 
-!COMPILE = |> gcc $(CFLAGS) %f -o %o |> 
+!COMPILE = |> gcc $(CFLAGS) %f -o %o |>
+
+ifneq (@(DEBUG),true)
+!LINK_EXEC = |> gcc %f -o %o $(LINK); strip %o |> $(BINARY)$(SUFFIX)
+!LINK_SOBJ = |> gcc $(LFLAGS)%o %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
+else
 !LINK_EXEC = |> gcc %f -o %o $(LINK) |> $(BINARY)$(SUFFIX)
 !LINK_SOBJ = |> gcc $(LFLAGS)%o %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
+endif
+
 !SETUP = |> mkdir -p |>
 !INSTALL_FILE = |> install -m644 %f |>
 !INSTALL_EXEC = |> install -m755 %f |>

@@ -29,19 +29,19 @@ struct ar_Lib {
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
   { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
-  { "%s/%s.dll",                       1 },
-  { "%s/%s.lsp",                       1 },
-  { NULL,                              0 }
+  { "%s/%s.dll",                                   1 },
+  { "%s/%s.lsp",                                   1 },
+  { NULL,                                          0 }
 };
 
 #else
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp",   0 },
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.so",      0 },
-  { "%s/%s.lsp",                       1 },
-  { "%s/%s.so",                        1 },
-  { NULL,                              0 }
+  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
+  { "/usr/local/lib/aria/" AR_VERSION "/%s.so",    0 },
+  { "%s/%s.lsp",                                   1 },
+  { "%s/%s.so",                                    1 },
+  { NULL,                                          0 }
 };
 
 #endif

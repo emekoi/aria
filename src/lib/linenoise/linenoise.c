@@ -191,7 +191,7 @@ FILE *lndebug_fp = NULL;
         fflush(lndebug_fp); \
     } while (0)
 #else
-#define lndebug(fmt, ...)
+#define lndebug(fmt, vargs)
 #endif
 
 /* ======================= Low level terminal handling ====================== */

@@ -14,18 +14,20 @@
 
 #define UNUSED(x) ((void) x)
 
-static inline char *concat(const char *str, ...) {
+static char *concat(const char *str, ...) {
+  int len;
+  char *res;
   va_list args;
   const char *s;
   /* Get len */
-  int len = strlen(str);
+  len = strlen(str);
   va_start(args, str);
   while ((s = va_arg(args, char*))) {
     len += strlen(s);
   }
   va_end(args);
   /* Build string */
-  char *res = malloc(len + 1);
+  res = malloc(len + 1);
   if (!res) return NULL;
   strcpy(res, str);
   va_start(args, str);
@@ -37,10 +39,11 @@ static inline char *concat(const char *str, ...) {
 }
 
 
-static inline char *basename(char *str) {
-  char *s = concat("", str, NULL);
-  char *p = s + strlen(s);
-  char *file = "";
+static char *basename(char *str) {
+  char *s, *p, *file;
+  s = concat("", str, NULL);
+  p = s + strlen(s);
+  file = "";
   while (p != s) {
     if (*p == '/' || *p == '\\') {
       UNUSED(*p++);
@@ -53,17 +56,23 @@ static inline char *basename(char *str) {
 }
 
 
-static inline int isSeparator(int chr) {
+static int isSeparator(int chr) {
   return (chr == '/' || chr == '\\');
 }
 
 
-static inline const char *skipDotSlash(const char *filename) {
+static const char *skipDotSlash(const char *filename) {
   if (filename[0] == '.' && isSeparator(filename[1])) {
     return filename + 2;
   }
   return filename;
 }
 
+
+static int is_alpha(char c) {
+  return (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z') ||
+         (c == '_');
+}
 
 #endif

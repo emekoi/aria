@@ -1,6 +1,6 @@
 .gitignore
 
-CFLAGS += -c -Wall -Wextra --std=c99 -pedantic -fno-strict-aliasing
+CFLAGS += -c -Wall -Wextra --std=c89 -ansi -pedantic -fno-strict-aliasing
 CFLAGS += -finline-functions -funroll-loops
 DEFINE += AR_STANDALONE
 INCLUDE += .tempsrc
@@ -8,8 +8,7 @@ LFLAGS += -shared
 LINK += -lm
 
 ifneq (@(DEBUG),true)
-  # CFLAGS += -O3
-  CFLAGS += -Ofast
+  CFLAGS += -O3
 else
   CFLAGS += -g -Og
 endif

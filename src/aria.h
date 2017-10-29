@@ -26,11 +26,6 @@
 #endif
 
 #define AR_VERSION "0.1.1"
-#define AR_POF "ar_open"
-#define AR_OFSEP "_"
-#define AR_OFN AR_POF AR_OFSEP
-#define AR_ESC '%'
-
 
 typedef unsigned char uchar;
 typedef struct ar_Value ar_Value;
@@ -50,7 +45,7 @@ struct ar_Value {
     struct { ar_Value *name; int line;                    } dbg;
     struct { ar_Value *pair, *left, *right;               } map;
     struct { ar_Value *car, *cdr, *dbg;                   } pair;
-    struct { double n;                                    } num;
+    struct { long double n;                               } num;
     struct { ar_Value *params, *body, *env;               } func;
     struct { void *ptr; ar_CFunc gc, mark;                } udata;
     struct { ar_Value *parent, *map;                      } env;
@@ -144,7 +139,7 @@ void ar_error_str(ar_State *S, const char *fmt, ...);
 ar_Value *ar_new_env(ar_State *S, ar_Value *parent);
 ar_Value *ar_new_pair(ar_State *S, ar_Value *car, ar_Value *cdr);
 ar_Value *ar_new_list(ar_State *S, size_t n, ...);
-ar_Value *ar_new_number(ar_State *S, double n);
+ar_Value *ar_new_number(ar_State *S, long double n);
 ar_Value *ar_new_udata(ar_State *S, void *ptr, ar_CFunc gc, ar_CFunc mark);
 ar_Value *ar_new_stringl(ar_State *S, const char *str, size_t len);
 ar_Value *ar_new_stringf(ar_State *S, const char *str, ...);
@@ -165,10 +160,10 @@ ar_Value *ar_to_string_value(ar_State *S, ar_Value *v, int quotestr);
 const char *ar_to_stringl(ar_State *S, ar_Value *v, size_t *len);
 const char *ar_to_string(ar_State *S, ar_Value *v);
 void *ar_to_udata(ar_State *S, ar_Value *v);
-double ar_to_number(ar_State *S, ar_Value *v);
+long double ar_to_number(ar_State *S, ar_Value *v);
 const char *ar_opt_string(ar_State *S, ar_Value *v, const char *def);
 void *ar_opt_udata(ar_State *S, ar_Value *v, void *def);
-double ar_opt_number(ar_State *S, ar_Value *v, double def);
+long double ar_opt_number(ar_State *S, ar_Value *v, long double def);
 
 ar_Value *ar_bind(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env);
 ar_Value *ar_set(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env);

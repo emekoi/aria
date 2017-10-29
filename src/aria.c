@@ -11,6 +11,10 @@
 #define MAX_STACK 1024
 #define CHUNK_LEN 1024
 
+#define AR_POF "ar_open"
+#define AR_OFSEP "_"
+#define AR_OFN AR_POF AR_OFSEP
+#define AR_ESC '%'
 
 struct ar_Chunk {
   ar_Value values[CHUNK_LEN];
@@ -135,7 +139,7 @@ ar_Value *ar_new_list(ar_State *S, size_t n, ...) {
 }
 
 
-ar_Value *ar_new_number(ar_State *S, double n) {
+ar_Value *ar_new_number(ar_State *S, long double n) {
   ar_Value *res = new_value(S, AR_TNUMBER);
   res->u.num.n = n;
   return res;
@@ -165,14 +169,16 @@ ar_Value *ar_new_stringl(ar_State *S, const char *str, size_t len) {
 
 
 ar_Value *ar_new_stringf(ar_State *S, const char *str, ...) {
-  if (str == NULL) return NULL;
   va_list arg, tmp;
+  ar_Value *v;
+  int len;
+  if (str == NULL) return NULL;
   va_start(arg, str);
-  ar_Value *v = ar_new_stringl(S, NULL, 0);
+  v = ar_new_stringl(S, NULL, 0);
   /* create a copy of the list of args */
-  va_copy(tmp, arg);
+  __va_copy(tmp, arg);
   /* get length string should be */
-  int len = vsnprintf(v->u.str.s, 0, str, tmp);
+  len = vsnprintf(v->u.str.s, 0, str, tmp);
   /* toss temp copy */
   va_end(tmp);
   /* something is wrong... */
@@ -351,7 +357,7 @@ ar_Value *ar_to_string_value(ar_State *S, ar_Value *v, int quotestr) {
       return join_list_of_strings(S, res);
 
     case AR_TNUMBER:
-      sprintf(buf, "%.14g", v->u.num.n);
+      sprintf(buf, "%.14Lg", v->u.num.n);
       return ar_new_string(S, buf);
 
     case AR_TSTRING:
@@ -408,7 +414,7 @@ void *ar_to_udata(ar_State *S, ar_Value *v) {
 }
 
 
-double ar_to_number(ar_State *S, ar_Value *v) {
+long double ar_to_number(ar_State *S, ar_Value *v) {
   UNUSED(S);
   switch (ar_type(v)) {
     case AR_TNUMBER : return v->u.num.n;
@@ -426,7 +432,7 @@ double ar_to_number(ar_State *S, ar_Value *v) {
 
 OPT_FUNC( ar_opt_string,  const char*,  AR_TSTRING, u.str.s     )
 OPT_FUNC( ar_opt_udata,   void*,        AR_TUDATA,  u.udata.ptr )
-OPT_FUNC( ar_opt_number,  double,       AR_TNUMBER, u.num.n     )
+OPT_FUNC( ar_opt_number,  long double,  AR_TNUMBER, u.num.n     )
 
 
 static int is_equal(ar_Value *v1, ar_Value *v2) {
@@ -912,30 +918,31 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
   }
 
   ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+    ar_Lib *l, *lib;
+    void *data;
     /* Check if library has already been loaded */
-    ar_Lib *l = S->libs;
+    l = S->libs;
     while (l) {
       if (!strcmp(l->name, path)) return NULL;
       l = l->next;
     }
-
     /* Create and name library */
-    ar_Lib *lib = ar_alloc(S, NULL, sizeof(*lib));
+    lib = ar_alloc(S, NULL, sizeof(*lib));
     lib->name = basename(path);
-
     /* Open the library */
-    void *data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
+    data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
     if (!data || data == NULL) return NULL;
     lib->data = data;
-
     /* Add library to library list and return it */
     lib->next = S->libs; S->libs = lib;
     return lib;
   }
 
   ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
-    dlerror(); char *err;
-    ar_CFunc fn = cast_func(ar_CFunc, dlsym(lib->data, sym));
+    char *err; 
+    ar_CFunc fn;
+    dlerror();
+    fn = cast_func(ar_CFunc, dlsym(lib->data, sym));
     if ((err = dlerror()) != NULL) ar_error_str(S, err);
     return fn;
   }
@@ -948,8 +955,9 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
   #endif
 
   static void pusherror (ar_State *S) {
-    int error = GetLastError();
+    int error;
     char buffer[128];
+    error = GetLastError();
     if (FormatMessageA(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
       NULL, error, 0, buffer, sizeof(buffer)/sizeof(char), NULL))
       ar_error_str(S, buffer);
@@ -964,29 +972,28 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
 
   ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
     UNUSED(global);
-
+    HMODULE data;
+    ar_Lib *l, *lib;
     /* Check if library has already been loaded */
-    ar_Lib *l = S->libs;
+    l = S->libs;
     while (l) {
       if (!strcmp(l->name, path)) return NULL;
       l = l->next;
     }
-
-    ar_Lib *lib = ar_alloc(S, NULL, sizeof(*lib));
+    lib = ar_alloc(S, NULL, sizeof(*lib));
     lib->name = basename(path);
-
     /* Opening the library */
-    HMODULE data = LoadLibraryEx(path, NULL, AR_LLE_FLAGS);
+    data = LoadLibraryEx(path, NULL, AR_LLE_FLAGS);
     if (!data || data == NULL) return NULL;
     lib->data = data;
-
     /* Add library to library list and return it */
     lib->next = S->libs; S->libs = lib;
     return lib;
   }
 
   ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
-    ar_CFunc fn = cast_func(ar_CFunc, GetProcAddress((HMODULE)lib->data, sym));
+    ar_CFunc fn;
+    fn = cast_func(ar_CFunc, GetProcAddress((HMODULE)lib->data, sym));
     if (!fn || fn == NULL) pusherror(S);
     return fn;
   }
@@ -1168,23 +1175,27 @@ char *getcwd(char *buf, int len) {
 
 static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
   ar_Value *res = ar_check(S, ar_eval(S, ar_nth(args, 0), env), AR_TSTRING);
-  for (int i = 0; ar_nth(args, i); i++) {
+  int i;
+  for (i = 0; ar_nth(args, i); i++) {
     size_t found = 0;
     /* Check all search paths */
-    for (size_t i = 0; ar_SearchPaths[i].path; i++) {
+    size_t j;
+    for (j = 0; ar_SearchPaths[j].path; j++) {
+      char *r, cwd[1024];
+      ar_Lib *lib;
+      ar_CFunc open_lib;
       /* Check for C libaries */
       char path[4096];
-      if (ar_SearchPaths[i].local) {
-        char cwd[1024];
-        sprintf(path, ar_SearchPaths[i].path, getcwd(cwd, sizeof(cwd)), skipDotSlash(res->u.str.s));
+      if (ar_SearchPaths[j].local) {
+        sprintf(path, ar_SearchPaths[j].path, getcwd(cwd, sizeof(cwd)), skipDotSlash(res->u.str.s));
       } else {
-        sprintf(path, ar_SearchPaths[i].path, skipDotSlash(res->u.str.s));
+        sprintf(path, ar_SearchPaths[j].path, skipDotSlash(res->u.str.s));
       }
-      ar_Lib *lib = ar_lib_load(S, path, 1);
+      lib = ar_lib_load(S, path, 1);
       if (lib) {
         /* Try to run the library's open function */
-        char *r = concat(AR_OFN, strtok(lib->name, "."), NULL);
-        ar_CFunc open_lib = ar_lib_sym(S, lib, r);
+        r = concat(AR_OFN, strtok(lib->name, "."), NULL);
+        open_lib = ar_lib_sym(S, lib, r);
         open_lib(S, NULL); free(r);
         found = 1;
         break;
@@ -1243,41 +1254,40 @@ static ar_Value *f_print(ar_State *S, ar_Value *args) {
 }
 
 
-static int is_alpha(char c) {
-  return (c >= 'a' && c <= 'z') ||
-         (c >= 'A' && c <= 'Z') ||
-         (c == '_');
-}
+#define formats(S, c, v) \
+  buf[0] = '%'; buf[1] = c; buf[2] = '\0'; \
+  return ar_new_stringf(S, buf, v)
 
-
-#define format(S, c, v) \
-  char buf[3]; buf[0] = '%'; buf[1] = c; buf[2] = '\0';\
+#define formatn(S, c, v) \
+  buf[0] = '%'; buf[1] = 'L'; buf[2] = c; buf[3] = '\0';\
   return ar_new_stringf(S, buf, v)
 
 static ar_Value *parse_format(ar_State *S, const char c, ar_Value *args) {
-  int num = round(ar_to_number(S, ar_car(args)));
+  int num;
+  char buf[4];
+  num = round(ar_to_number(S, ar_car(args)));
   switch (c) {
     case 'c': case 'u': {
       ar_check_number(S, ar_car(args));
-      format(S, c, (unsigned int)num);
+      formatn(S, c, (unsigned int)num);
     }
     case 'i': case 'd': case 'x':
     case 'X': case 'o':{
       ar_check_number(S, ar_car(args));
-      format(S, c, num);
+      formatn(S, c, num);
     }
-    case 'e': case 'E': case 'f': case 'g':{
+    case 'e': case 'E': case 'F': case 'g':{
       ar_check_number(S, ar_car(args));
-      format(S, c, ar_to_number(S, ar_car(args)));
+      formatn(S, c, ar_to_number(S, ar_car(args)));
     }
     case 'p':{
-      format(S, c, ar_car(args));
+      formats(S, c, ar_car(args));
     }
     case 'q':{
-      format(S, 's', ar_to_string_value(S, ar_car(args), 1)->u.str.s);
+      formats(S, 's', ar_to_string_value(S, ar_car(args), 1)->u.str.s);
     }
     case 's':{
-      format(S, c, ar_to_string_value(S, ar_car(args), 0)->u.str.s);
+      formats(S, c, ar_to_string_value(S, ar_car(args), 0)->u.str.s);
     }
     default:
       if (is_alpha(c))
@@ -1477,6 +1487,10 @@ static ar_Value *f_is(ar_State *S, ar_Value *args) {
 }
 
 
+#undef PI
+#define PI      (3.141592653589793238462643383279502884)
+
+
 #define NUM_COMPARE_FUNC(NAME, OP)                                \
   static ar_Value *NAME(ar_State *S, ar_Value *args) {            \
     return ( ar_check_number(S, ar_car(args)) OP                  \
@@ -1491,7 +1505,7 @@ NUM_COMPARE_FUNC( f_gte, >= )
 
 #define NUM_ARITH_FUNC(NAME, OP)                        \
   static ar_Value *NAME(ar_State *S, ar_Value *args) {  \
-    double res = ar_check_number(S, ar_car(args));      \
+    long double res = ar_check_number(S, ar_car(args));      \
     while ( (args = ar_cdr(args)) ) {                   \
       res = res OP ar_check_number(S, ar_car(args));    \
     }                                                   \
@@ -1503,28 +1517,92 @@ NUM_ARITH_FUNC( f_sub, - )
 NUM_ARITH_FUNC( f_mul, * )
 NUM_ARITH_FUNC( f_div, / )
 
+
 static ar_Value *f_mod(ar_State *S, ar_Value *args) {
-  double a = ar_check_number(S, ar_car(args));
-  double b = ar_check_number(S, ar_nth(args, 1));
+  long double a = ar_check_number(S, ar_nth(args, 0));
+  long double b = ar_check_number(S, ar_nth(args, 1));
   if (b == 0.) ar_error_str(S, "expected a non-zero divisor");
-  return ar_new_number(S, a - b * (long) (a / b));
+  return ar_new_number(S, fmod(a, b));
+}
+
+#define NUM_MATH_FUNC1(NAME, func)                      \
+  static ar_Value *NAME(ar_State *S, ar_Value *args) {  \
+    return ar_new_number(S, func(ar_check_number(S,     \
+      ar_nth(args, 0))));                               \
+  }
+
+#define NUM_MATH_FUNC2(NAME, func)                      \
+  static ar_Value *NAME(ar_State *S, ar_Value *args) {  \
+    return ar_new_number(S, func(ar_check_number(S,     \
+      ar_nth(args, 0)), ar_check_number(S,              \
+      ar_nth(args, 1))));                               \
+  }
+
+
+NUM_MATH_FUNC1(f_acos, acos)
+NUM_MATH_FUNC1(f_asin, asin)
+NUM_MATH_FUNC1(f_ceil, ceil)
+NUM_MATH_FUNC1(f_cos, cos)
+NUM_MATH_FUNC1(f_exp, exp)
+NUM_MATH_FUNC1(f_floor, floor)
+NUM_MATH_FUNC1(f_sin, sin)
+NUM_MATH_FUNC1(f_sqrt, sqrt)
+NUM_MATH_FUNC1(f_tan, tan)
+NUM_MATH_FUNC2(f_pow, pow)
+
+
+static ar_Value *f_atan(ar_State *S, ar_Value *args) {
+  long double a, b;
+  a = ar_check_number(S, ar_nth(args, 0));
+  b = ar_nth(args, 1) ? ar_check_number(S, ar_nth(args, 1)) : 1;
+  if (b == 0.0) ar_error_str(S, "expected a non-zero divisor");
+  return ar_new_number(S, atan2(a, b));
 }
 
 
-static ar_Value *f_ceil(ar_State *S, ar_Value *args) {
-  double x = ar_check_number(S, ar_car(args));
-  return ar_new_number(S, ceil(x));
+static ar_Value *f_deg(ar_State *S, ar_Value *args) {
+  long double a;
+  a = ar_check_number(S, ar_nth(args, 0));
+  return ar_new_number(S, a * (180.0 / PI));
+}
+
+
+static ar_Value *f_rad(ar_State *S, ar_Value *args) {
+  long double a;
+  a = ar_check_number(S, ar_nth(args, 0));
+  return ar_new_number(S, a * (PI / 180.0));
+}
+
+
+static ar_Value *f_modf(ar_State *S, ar_Value *args) {
+  int b;
+  long double a;
+  a = ar_check_number(S, ar_nth(args, 0)); b = a;
+  return ar_new_list(S, 2, ar_new_number(S, b), ar_new_number(S, a - b));
+}
+
+
+static ar_Value *f_log(ar_State *S, ar_Value *args) {
+  long double a, b, res;
+  a = ar_check_number(S, ar_nth(args, 0));
+  if (!ar_nth(args, 1))
+    res = log(a);
+  else {
+    b = ar_check_number(S, ar_nth(args, 1));
+    if (b == 10.0) res = log10(a);
+    else res = log(a) / log(b);
+  }
+  return ar_new_number(S, res);
 }
 
 
 static ar_Value *f_now(ar_State *S, ar_Value *args) {
-  double t;
+  long double t;
   #ifdef _WIN32
     FILETIME ft;
   #else
     struct timeval tv;
   #endif
-
   UNUSED(args);
   #ifdef _WIN32
     GetSystemTimeAsFileTime(&ft);
@@ -1541,7 +1619,7 @@ static ar_Value *f_now(ar_State *S, ar_Value *args) {
 
 static ar_Value *f_clock(ar_State *S, ar_Value *args) {
   UNUSED(args);
-  return ar_new_number(S, (double) clock() / (double) CLOCKS_PER_SEC);
+  return ar_new_number(S, (long double) clock() / (long double) CLOCKS_PER_SEC);
 }
 
 
@@ -1615,8 +1693,22 @@ static void register_builtin(ar_State *S) {
     { "-",        f_sub     },
     { "*",        f_mul     },
     { "/",        f_div     },
-    { "mod",      f_mod     },
+    { "pow*",     f_pow     },
+    { "%",        f_mod     },
+    { "acos",     f_acos    },
+    { "asin",     f_asin    },
+    { "atan",     f_atan    },
     { "ceil",     f_ceil    },
+    { "cos",      f_cos     },
+    { "deg",      f_deg     },
+    { "exp",      f_exp     },
+    { "floor",    f_floor   },
+    { "log",      f_log     },
+    { "modf",     f_modf    },
+    { "rad",      f_rad     },
+    { "sin",      f_sin     },
+    { "sqrt",     f_sqrt    },
+    { "tan",      f_tan     },
     { "now",      f_now     },
     { "clock",    f_clock   },
     { "sleep",    f_sleep   },
@@ -1626,6 +1718,8 @@ static void register_builtin(ar_State *S) {
   /* Globals */
   struct { const char *name; void *val; } globals[] = {
     { "VERSION", AR_VERSION },
+    /* { "math-huge", HUGE_VAL },
+       { "math-pi",   PI }, */
     { NULL, NULL }
   };
   /* Register */
@@ -1687,10 +1781,9 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
 
 
 void ar_close_state(ar_State *S) {
-  gc_deinit(S);
-
-  /* Close all open libaries */
   ar_Lib *lib, *next;
+  gc_deinit(S);
+  /* Close all open libaries */
   lib = S->libs;
   while (lib) {
     next = lib->next;
@@ -1698,7 +1791,6 @@ void ar_close_state(ar_State *S) {
     ar_free(S, lib);
     lib = next;
   }
-
   ar_free(S, S);
 }
 
@@ -1788,8 +1880,8 @@ void ar_error_str(ar_State *S, const char *fmt, ...) {
 
 #ifdef AR_STANDALONE
 
-ar_State *S;
 char *line;
+ar_State *S;
 
 #ifndef _WIN32
   #include "lib/linenoise/linenoise.h"
@@ -1810,10 +1902,12 @@ char *line;
   }
 #endif
 
+
 static void shut_down(void) {
   ar_close_state(S);
   free(line);
 }
+
 
 int main(int argc, char **argv) {
   atexit(shut_down);
@@ -1831,9 +1925,7 @@ int main(int argc, char **argv) {
   #include "core_lsp.h"
   #include "class_lsp.h"
 
-  struct {
-    const char *name, *data;
-  } items[] = {
+  struct { const char *name, *data; } items[] = {
     { "core.lsp",  core_lsp  },
     { "class.lsp", class_lsp },
     { NULL, NULL }
@@ -1842,13 +1934,11 @@ int main(int argc, char **argv) {
   for (i = 0; items[i].name; i++) {
     ar_eval(S, ar_parse(S, items[i].data, items[i].name), S->global);
   }
-
   if (argc < 2) {
     /* Init REPL */
     ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
     #include "repl_lsp.h"
     ar_do_string(S, repl_lsp);
-
   } else {
     int i;
     /* Store arguments at global list `argv` */

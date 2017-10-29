@@ -1,5 +1,5 @@
 # aria
-A *tiny*, easily embeddable lisp-shaped language implemented in C99.
+A *tiny*, easily embeddable lisp-shaped language implemented (almost) in C89.
 
 ```lisp
 (do

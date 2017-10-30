@@ -1,5 +1,5 @@
 (do
-
+  
   ; core
   
   (= caar (fn (x) (car (car x))))
@@ -79,16 +79,12 @@
           (push res cache))
         (cdr res)))))
 
-  (= make-rand (fn (x)
-    (default x 0)
+  (= rand (let (seed 0)
     (fn (n)
-      (= x (mod (+ (* x 196561) 1374) 0x7fffffff))
-      (if n (mod x n) (/ x 0x7fffffff)))))
-
-  (= rand (make-rand (now)))
+      (= seed (mod (+ (* seed 196561) 1374) 2147483647))
+      (if n (mod seed n) (/ seed 2147483647)))))
 
   (= frand (fn (a b)
-    (rand)
     (if (not a) (= a 0 b 1))
     (if (not b) (= b 0))
     (+ a (* (rand) (- b a)))))
@@ -105,7 +101,13 @@
   (= lerp (fn (a b p)
     (+ a (* (- b a) p))))
 
-  (= clamp (fn (x a b) (or (and (< x a) a) (or (and (> x b) b) x))))
+  (= round (fn (x inc)
+    (if inc (do (* (round (/ x inc)) inc))
+    (or (and (>= x 0) (floor (+ x .5))) (ceil (- x .5))))))
+
+  (= clamp (fn (x a b)
+    (or (and (< x a) a) 
+    (or (and (> x b) b) x))))
 
   ; loop
 
@@ -118,7 +120,6 @@
         (f i)
         (++ i)))))
 
-
   ; list
 
   (= nth* (fn (n lst)
@@ -130,6 +131,9 @@
 
   (= nth (fn (n lst)
     (car (nth* n lst))))
+
+  (= set (fn (n v lst) 
+    (setcar (nth* n lst) v)))
 
   (= len (fn (lst)
     (let (res 0)
@@ -144,6 +148,13 @@
         (p (car lst))
         (= lst (cdr lst))
         (-- n))))))
+
+  (= slice (fn (a b lst) 
+    (default a  0)
+    (default b  (len lst))
+    (if (and (>= a 0) (>= b 0))
+      (take b (nth* a lst )) 
+      (reverse (slice (* a -1) (* b -1) (reverse lst))))))
 
   (= reverse (fn (lst)
     (let (res nil)
@@ -259,7 +270,6 @@
         (list = sym (list cdr sym))
         x))))
 
-
   ; association list
 
   (= alist (fn x
@@ -295,7 +305,6 @@
 
   (= alcons (fn (key val lst)
     (cons (cons key val) lst)))
-
 
   ; string
 

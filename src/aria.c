@@ -1488,7 +1488,7 @@ static ar_Value *f_is(ar_State *S, ar_Value *args) {
 
 
 #undef PI
-#define PI      (3.141592653589793238462643383279502884)
+#define PI (3.141592653589793238462643383279502884)
 
 
 #define NUM_COMPARE_FUNC(NAME, OP)                                \
@@ -1694,7 +1694,7 @@ static void register_builtin(ar_State *S) {
     { "*",        f_mul     },
     { "/",        f_div     },
     { "pow*",     f_pow     },
-    { "%",        f_mod     },
+    { "mod",      f_mod     },
     { "acos",     f_acos    },
     { "asin",     f_asin    },
     { "atan",     f_atan    },
@@ -1713,14 +1713,20 @@ static void register_builtin(ar_State *S) {
     { "clock",    f_clock   },
     { "sleep",    f_sleep   },
     { "exit",     f_exit    },
-    { NULL, NULL }
+    { NULL,       NULL      }
   };
-  /* Globals */
-  struct { const char *name; void *val; } globals[] = {
+  /* String Globals */
+  struct { const char *name; void *val; } str_globals[] = {
     { "VERSION", AR_VERSION },
-    /* { "math-huge", HUGE_VAL },
-       { "math-pi",   PI }, */
-    { NULL, NULL }
+    { NULL,      NULL       }
+  };
+  /* Math Globals */
+  struct { const char *name; double val; } num_globals[] = {
+    { "math-huge",  HUGE_VAL  },
+    { "-math-huge", -HUGE_VAL },
+    { "math-pi",    PI        },
+    { "-math-pi",   -PI       }, 
+    { NULL,         0         }
   };
   /* Register */
   for (i = 0; prims[i].name; i++) {
@@ -1729,8 +1735,11 @@ static void register_builtin(ar_State *S) {
   for (i = 0; funcs[i].name; i++) {
     ar_bind_global(S, funcs[i].name, ar_new_cfunc(S, funcs[i].fn));
   }
-  for (i = 0; globals[i].name; i++) {
-    ar_bind_global(S, globals[i].name, ar_new_string(S, globals[i].val));
+  for (i = 0; str_globals[i].name; i++) {
+    ar_bind_global(S, str_globals[i].name, ar_new_string(S, str_globals[i].val));
+  }
+  for (i = 0; num_globals[i].name; i++) {
+    ar_bind_global(S, num_globals[i].name, ar_new_number(S, num_globals[i].val));
   }
 }
 

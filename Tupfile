@@ -21,3 +21,4 @@ BINARY = bin/libaria
 : foreach src/*.h |> !INSTALL_FILE @(INC) |>
 : bin/libaria$(SO_SUFFIX) |> !INSTALL_FILE @(LIB) |>
 : bin/aria |> !INSTALL_EXEC @(BIN) |>
+# : |> export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib:/usr/local/lib |>

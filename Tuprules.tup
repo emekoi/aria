@@ -1,16 +1,17 @@
 .gitignore
 
-CFLAGS += -c -Wall -Wextra --std=c89 -ansi -pedantic -fno-strict-aliasing
+CFLAGS += -c -Wall -Wextra --std=c99 -ansi -pedantic -fno-strict-aliasing
 CFLAGS += -finline-functions -funroll-loops
 DEFINE += AR_STANDALONE
 INCLUDE += .tempsrc
-LFLAGS += -shared
+LFLAGS += -shared -fPIC
 LINK += -lm
 
 ifneq (@(DEBUG),true)
   CFLAGS += -O3
 else
-  CFLAGS += -g -Og
+  C#FLAGS += -g -Og
+  CFLAGS += -g
 endif
 
 ifeq (@(TUP_PLATFORM),win32)
@@ -35,10 +36,10 @@ endif
 
 ifneq (@(DEBUG),true)
 !LINK_EXEC = |> gcc %f -o %o $(LINK); strip %o |> $(BINARY)$(SUFFIX)
-!LINK_SOBJ = |> gcc $(LFLAGS)%o %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
+!LINK_SOBJ = |> gcc $(LFLAGS)%B.so %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
 else
 !LINK_EXEC = |> gcc %f -o %o $(LINK) |> $(BINARY)$(SUFFIX)
-!LINK_SOBJ = |> gcc $(LFLAGS)%o %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
+!LINK_SOBJ = |> gcc $(LFLAGS)%B.so %f -o %o $(LINK) |> $(BINARY)$(SO_SUFFIX)
 endif
 
 !SETUP = |> mkdir -p |>

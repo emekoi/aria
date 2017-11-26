@@ -127,6 +127,14 @@ enum {
     }                                                     \
   } while (0)
 
+#define free(x) do { \
+  if (x) { \
+    free(x); \
+  } \
+} while(0)
+
+#define DEBUG(x, ...) printf("[DEBUG]: %s:%d: %s() -> " x, __FILE__, __LINE__, __func__, __VA_ARGS__)
+
 void *ar_alloc(ar_State *S, void *ptr, size_t n);
 void ar_free(ar_State *S, void *ptr);
 
@@ -179,7 +187,7 @@ ar_Value *ar_do_string(ar_State *S, const char *str);
 ar_Value *ar_do_file(ar_State *S, const char *filename);
 
 void ar_lib_close(ar_State *S, ar_Lib *lib);
-ar_Lib *ar_lib_load(ar_State *S, char *path, int global);
+ar_Lib *ar_lib_load(ar_State *S, const char *path, int global);
 ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
 
 #endif

@@ -63,3 +63,4 @@ bin/
 .DS_Store
 .tup/
 build-*/
+*._o

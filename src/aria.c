@@ -41,10 +41,10 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
 #else
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
+  { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp", 0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.so",    0 },
-  { "%s/%s.lsp",                                   1 },
   { "%s/%s.so",                                    1 },
+  { "%s/%s.lsp",                                   1 },
   { NULL,                                          0 }
 };
 
@@ -771,7 +771,7 @@ static ar_Value *args_to_env(
 ) {
   ar_Value *e = ar_new_env(S, env);
   /* No params? */
-  if (ar_car(params) == AR_TNIL) {
+  if (ar_type(params) == AR_TNIL) {
     return e;
   }
   /* Handle arg list */
@@ -910,6 +910,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
  #endif
 
 #ifdef AR_DL_DLOPEN
+  #define _GNU_SOURCE
   #include <dlfcn.h>
 
   void ar_lib_close(ar_State *S, ar_Lib *lib) {
@@ -917,7 +918,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     dlclose(lib->data);
   }
 
-  ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+  ar_Lib *ar_lib_load(ar_State *S, const char *path, int global) {
     ar_Lib *l, *lib;
     void *data;
     /* Check if library has already been loaded */
@@ -939,7 +940,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
   }
 
   ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym) {
-    char *err; 
+    char *err;
     ar_CFunc fn;
     dlerror();
     fn = cast_func(ar_CFunc, dlsym(lib->data, sym));
@@ -970,7 +971,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     FreeLibrary((HMODULE) lib->data);
   }
 
-  ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+  ar_Lib *ar_lib_load(ar_State *S, const char *path, int global) {
     UNUSED(global);
     HMODULE data;
     ar_Lib *l, *lib;
@@ -1007,7 +1008,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     ar_error_str(S, DLMSG);
   }
 
-  ar_Lib *ar_lib_load(ar_State *S, char *path, int global) {
+  ar_Lib *ar_lib_load(ar_State *S, const char *path, int global) {
     UNUSED(path); UNUSED(global);
     ar_error_str(S, DLMSG);
     return NULL;
@@ -1202,12 +1203,12 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
       }
       /* Check for aria libraries */
       ar_try(S, err, {
-        ar_do_file(S, path);
-        found = 1;
+        if (ar_do_file(S, path)) found = 1;
       }, {
         found = 0;
         UNUSED(err);
       });
+
       if (found) break;
     }
     if (!found)
@@ -1725,7 +1726,7 @@ static void register_builtin(ar_State *S) {
     { "math-huge",  HUGE_VAL  },
     { "-math-huge", -HUGE_VAL },
     { "math-pi",    PI        },
-    { "-math-pi",   -PI       }, 
+    { "-math-pi",   -PI       },
     { NULL,         0         }
   };
   /* Register */
@@ -1904,7 +1905,7 @@ ar_State *S;
   }
 #else
   static ar_Value *f_readline(ar_State *S, ar_Value *args) {
-    char buf[2048];
+    char buf[4096];
     UNUSED(args);
     printf("> ");
     return ar_new_string(S, fgets(buf, sizeof(buf) - 1, stdin));

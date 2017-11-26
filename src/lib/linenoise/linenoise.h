@@ -48,6 +48,14 @@ typedef struct linenoiseCompletions {
   char **cvec;
 } linenoiseCompletions;
 
+#define free(x) do { \
+  if (x) { \
+    printf("[FREE]: %s:%d: '%s'", __FILE__, __LINE__, #x); \
+    free(x); \
+  } \
+} while(0)
+
+
 typedef void(linenoiseCompletionCallback)(const char *, linenoiseCompletions *);
 void linenoiseSetCompletionCallback(linenoiseCompletionCallback *);
 void linenoiseAddCompletion(linenoiseCompletions *, const char *);

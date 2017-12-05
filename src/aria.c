@@ -1637,6 +1637,18 @@ static ar_Value *f_exit(ar_State *S, ar_Value *args) {
 }
 
 
+static ar_Value *f_unwind(ar_State *S, ar_Value *args) {
+  ar_Frame *until = &S->base_frame;
+  ar_Value *res = NULL, **last = &res;
+  ar_Frame *f = S->frame;
+  while (f != until) {
+    last = ar_append_tail(S, last, f->caller);
+    f = f->parent;
+  }
+  return res;
+}
+
+
 static void register_builtin(ar_State *S) {
   int i;
   /* Primitives */
@@ -1714,6 +1726,7 @@ static void register_builtin(ar_State *S) {
     { "clock",    f_clock   },
     { "sleep",    f_sleep   },
     { "exit",     f_exit    },
+    { "unwind",   f_unwind  },
     { NULL,       NULL      }
   };
   /* String Globals */

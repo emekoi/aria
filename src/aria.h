@@ -51,6 +51,7 @@ struct ar_Value {
     struct { ar_Value *parent, *map;                      } env;
     struct { ar_CFunc fn;                                 } cfunc;
     struct { ar_Prim fn;                                  } prim;
+    struct { ar_Frame *frame; ar_Value *params, *body, *env        } cont;
     struct { char *s; size_t len; unsigned hash;          } str;
   } u;
 };

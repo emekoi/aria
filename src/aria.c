@@ -771,7 +771,7 @@ static ar_Value *args_to_env(
 ) {
   ar_Value *e = ar_new_env(S, env);
   /* No params? */
-  if (ar_type(params) == AR_TNIL) {
+  if (ar_car(params) == AR_TNIL) {
     return e;
   }
   /* Handle arg list */

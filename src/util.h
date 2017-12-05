@@ -39,7 +39,7 @@ static char *concat(const char *str, ...) {
 }
 
 
-static char *basename(char *str) {
+static char *basename(const char *str) {
   char *s, *p, *file;
   s = concat("", str, NULL);
   p = s + strlen(s);

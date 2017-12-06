@@ -41,7 +41,7 @@ struct { const char *path; uchar local; } ar_SearchPaths[] = {
 #else
 
 struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.lsp", 0 },
+  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
   { "/usr/local/lib/aria/" AR_VERSION "/%s.so",    0 },
   { "%s/%s.so",                                    1 },
   { "%s/%s.lsp",                                   1 },
@@ -77,7 +77,7 @@ static void push_value_to_stack(ar_State *S, ar_Value *v) {
 }
 
 
-static ar_Value *new_value(ar_State *S, int type) {
+static ar_Value *new_value(ar_State *S, size_t type) {
   ar_Value *v;
   /* Run garbage collector? */
   S->gc_count--;
@@ -792,7 +792,7 @@ static ar_Value *args_to_env(
 
 static void push_frame(ar_State *S, ar_Frame *f, ar_Value *caller) {
   if (S->frame_idx == MAX_STACK) {
-    ar_error_str(S, "stack overflow");
+    ar_error_str(S, "call stack overflow");
   }
   S->frame_idx++;
   f->parent = S->frame;

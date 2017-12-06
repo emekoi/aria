@@ -40,19 +40,20 @@ typedef ar_Value* (*ar_Prim)(ar_State *S, ar_Value* args, ar_Value *env);
 
 
 struct ar_Value {
-  uchar type, mark;
+  size_t type;
+  unsigned char mark;
   union {
-    struct { ar_Value *name; int line;                    } dbg;
-    struct { ar_Value *pair, *left, *right;               } map;
-    struct { ar_Value *car, *cdr, *dbg;                   } pair;
-    struct { long double n;                               } num;
-    struct { ar_Value *params, *body, *env;               } func;
-    struct { void *ptr; ar_CFunc gc, mark;                } udata;
-    struct { ar_Value *parent, *map;                      } env;
-    struct { ar_CFunc fn;                                 } cfunc;
-    struct { ar_Prim fn;                                  } prim;
-    struct { ar_Frame *frame; ar_Value *params, *body, *env        } cont;
-    struct { char *s; size_t len; unsigned hash;          } str;
+    struct { ar_Value *name; int line;                       } dbg;
+    struct { ar_Value *pair, *left, *right;                  } map;
+    struct { ar_Value *car, *cdr, *dbg;                      } pair;
+    struct { long double n;                                  } num;
+    struct { ar_Value *params, *body, *env;                  } func;
+    struct { void *ptr; ar_CFunc gc, mark;                   } udata;
+    struct { ar_Value *parent, *map;                         } env;
+    struct { ar_CFunc fn;                                    } cfunc;
+    struct { ar_Prim fn;                                     } prim;
+    struct { ar_Frame *frame; ar_Value *params, *body, *env; } cont;
+    struct { char *s; size_t len; unsigned hash;             } str;
   } u;
 };
 
@@ -89,22 +90,21 @@ struct ar_State {
 };
 
 
-enum {
-  AR_TNIL,
-  AR_TDBGINFO,
-  AR_TMAPNODE,
-  AR_TPAIR,
-  AR_TNUMBER,
-  AR_TSTRING,
-  AR_TSYMBOL,
-  AR_TFUNC,
-  AR_TMACRO,
-  AR_TPRIM,
-  AR_TCFUNC,
-  AR_TENV,
-  AR_TUDATA,
-  AR_TUNDEF
-};
+#define AR_TNIL     ((size_t)(0 << 0))
+#define AR_TDBGINFO ((size_t)(1 << 0))
+#define AR_TMAPNODE ((size_t)(1 << 1))
+#define AR_TPAIR    ((size_t)(1 << 2))
+#define AR_TNUMBER  ((size_t)(1 << 3))
+#define AR_TSTRING  ((size_t)(1 << 4))
+#define AR_TSYMBOL  ((size_t)(1 << 5))
+#define AR_TFUNC    ((size_t)(1 << 6))
+#define AR_TMACRO   ((size_t)(1 << 7))
+#define AR_TPRIM    ((size_t)(1 << 8))
+#define AR_TCFUNC   ((size_t)(1 << 9))
+#define AR_TENV     ((size_t)(1 << 10))
+#define AR_TUDATA   ((size_t)(1 << 11))
+#define AR_TCONTIN  ((size_t)(1 << 11))
+
 
 #define ar_get_global(S,x)    ar_eval(S, ar_new_symbol(S, x), (S)->global)
 #define ar_bind_global(S,x,v) ar_bind(S, ar_new_symbol(S, x), v, (S)->global)
@@ -127,14 +127,6 @@ enum {
       (S)->frame->err_env = old_env__;                    \
     }                                                     \
   } while (0)
-
-#define free(x) do { \
-  if (x) { \
-    free(x); \
-  } \
-} while(0)
-
-#define DEBUG(x, ...) printf("[DEBUG]: %s:%d: %s() -> " x, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 void *ar_alloc(ar_State *S, void *ptr, size_t n);
 void ar_free(ar_State *S, void *ptr);

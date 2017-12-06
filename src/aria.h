@@ -43,17 +43,16 @@ struct ar_Value {
   size_t type;
   unsigned char mark;
   union {
-    struct { ar_Value *name; int line;                       } dbg;
-    struct { ar_Value *pair, *left, *right;                  } map;
-    struct { ar_Value *car, *cdr, *dbg;                      } pair;
-    struct { long double n;                                  } num;
-    struct { ar_Value *params, *body, *env;                  } func;
-    struct { void *ptr; ar_CFunc gc, mark;                   } udata;
-    struct { ar_Value *parent, *map;                         } env;
-    struct { ar_CFunc fn;                                    } cfunc;
-    struct { ar_Prim fn;                                     } prim;
-    struct { ar_Frame *frame; ar_Value *params, *body, *env; } cont;
-    struct { char *s; size_t len; unsigned hash;             } str;
+    struct { ar_Value *name; int line;            } dbg;
+    struct { ar_Value *pair, *left, *right;       } map;
+    struct { ar_Value *car, *cdr, *dbg;           } pair;
+    struct { long double n;                       } num;
+    struct { ar_Value *params, *body, *env;       } func;
+    struct { void *ptr; ar_CFunc gc, mark;        } udata;
+    struct { ar_Value *parent, *map;              } env;
+    struct { ar_CFunc fn;                         } cfunc;
+    struct { ar_Prim fn;                          } prim;
+    struct { char *s; size_t len; unsigned hash;  } str;
   } u;
 };
 
@@ -103,7 +102,6 @@ struct ar_State {
 #define AR_TCFUNC   ((size_t)(1 << 9))
 #define AR_TENV     ((size_t)(1 << 10))
 #define AR_TUDATA   ((size_t)(1 << 11))
-#define AR_TCONTIN  ((size_t)(1 << 11))
 
 
 #define ar_get_global(S,x)    ar_eval(S, ar_new_symbol(S, x), (S)->global)

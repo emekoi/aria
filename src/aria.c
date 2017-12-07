@@ -22,6 +22,18 @@ struct ar_Chunk {
 };
 
 
+struct ar_Fiber {
+  /* Current stack frame */
+  ar_Frame *frame;
+  /* Current stack frame index */
+  int frame_idx;
+  /* The fiber's function data */
+  ar_Value *params, *body, *env;
+  /* The fiber that called this one */
+  struct ar_Fiber *caller;
+};
+
+
 struct ar_Lib {
   char *name;
   void *data;
@@ -463,6 +475,52 @@ static ar_Value *debug_location(ar_State *S, ar_Value *v) {
 
 
 /*===========================================================================
+ * Fibers
+ *===========================================================================*/
+
+ar_Value *ar_new_fiber(
+  ar_State *S, ar_Value *params, ar_Value *body, ar_Value *env
+) {
+  ar_Value *v, *caller;
+  /* Init fiber */
+  ar_Fiber fiber;
+  // fiber.frame = NULL;
+  caller = new_value(S, AR_TFUNC);
+  caller->u.func.params = fiber.params = params;
+  caller->u.func.body = fiber.body = body;
+  caller->u.func.env = fiber.env = env;
+  v = new_value(S, AR_TFIBER);
+  ar_reset_fiber(S, &fiber, caller);
+  v->u.fiber.fb = &fiber;
+  return v;
+}
+
+
+void ar_reset_fiber(ar_State *S, ar_Fiber *fb, ar_Value *caller) {
+  /* Reset everything */
+  fb->frame_idx = 0;
+  fb->caller = S->fiber;
+  fb->params = NULL;
+  fb->env = NULL;
+
+  switch (ar_type(caller)) {
+    case AR_TMACRO: case AR_TCFUNC: case AR_TFUNC: {
+      ar_Frame f;
+      if (fb->frame_idx == MAX_STACK) {
+        ar_error_str(S, "call stack overflow");
+      }
+      fb->frame_idx++;
+      (&f)->parent = S->fiber->frame;
+      (&f)->caller = caller;
+      (&f)->stack_idx = S->gc_stack_idx;
+      (&f)->err_env = NULL;
+      fb->frame = &f;
+    }
+  }
+}
+
+
+/*===========================================================================
  * Garbage collector
  *===========================================================================*/
 
@@ -472,6 +530,9 @@ static void gc_free(ar_State *S, ar_Value *v) {
     case AR_TSYMBOL:
     case AR_TSTRING:
       ar_free(S, v->u.str.s);
+      break;
+    case AR_TFIBER:
+      // v->u.fiber.fb = NULL;
       break;
     case AR_TUDATA:
       if (v->u.udata.gc) v->u.udata.gc(S, v);
@@ -529,6 +590,11 @@ begin:
     case AR_TENV:
       ar_mark(S, v->u.env.map);
       v = v->u.env.parent;
+      goto begin;
+    case AR_TFIBER:
+      ar_mark(S, v->u.fiber.fb->params);
+      ar_mark(S, v->u.fiber.fb->body);
+      v = v->u.fiber.fb->env;
       goto begin;
     case AR_TUDATA:
       if (v->u.udata.mark) v->u.udata.mark(S, v);
@@ -791,24 +857,25 @@ static ar_Value *args_to_env(
 
 
 static void push_frame(ar_State *S, ar_Frame *f, ar_Value *caller) {
-  if (S->frame_idx == MAX_STACK) {
+  if (S->fiber->frame_idx == MAX_STACK) {
     ar_error_str(S, "call stack overflow");
   }
-  S->frame_idx++;
-  f->parent = S->frame;
+  S->fiber->frame_idx++;
+  f->parent = S->fiber->frame;
   f->caller = caller;
   f->stack_idx = S->gc_stack_idx;
   f->err_env = NULL;
-  S->frame = f;
+  S->fiber->frame = f;
 }
 
 
 static void pop_frame(ar_State *S, ar_Value *rtn) {
-  S->gc_stack_idx = S->frame->stack_idx;
-  S->frame = S->frame->parent;
-  S->frame_idx--;
+  printf("%p -> %p\n", S->fiber, S->fiber->frame);
+  S->gc_stack_idx = S->fiber->frame->stack_idx;
+  S->fiber->frame = S->fiber->frame->parent;
+  S->fiber->frame_idx--;
   /* Reached the base frame? Clear protected-value-stack of all values */
-  if (S->frame == &S->base_frame) S->gc_stack_idx = 0;
+  if (S->fiber->frame == &S->base_frame) S->gc_stack_idx = 0;
   if (rtn) push_value_to_stack(S, rtn);
 }
 
@@ -1761,6 +1828,7 @@ static void *alloc_(void *udata, void *ptr, size_t size) {
 
 ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   ar_State *volatile S;
+  ar_Fiber fiber;
   if (!alloc) {
     alloc = alloc_;
   }
@@ -1769,12 +1837,17 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   memset(S, 0, sizeof(*S));
   S->alloc = alloc;
   S->udata = udata;
-  S->frame = &S->base_frame;
+
+  fiber.frame = &S->base_frame;
+  fiber.frame_idx = 0;
+  fiber.caller = NULL;
+  S->fiber = &fiber;
   /* We use the ar_try macro in case an out-of-memory error occurs -- you
    * shouldn't usually return from inside the ar_try macro */
   ar_try(S, err, {
     /* Init global env; add constants, primitives and funcs */
     S->global = ar_new_env(S, NULL);
+    S->fiber->env = S->global;
     S->oom_error = ar_new_string(S, "out of memory");
     S->oom_args = ar_new_pair(S, S->oom_error, NULL);
     S->t = ar_new_symbol(S, "t");
@@ -1814,7 +1887,7 @@ ar_CFunc ar_at_panic(ar_State *S, ar_CFunc fn) {
 
 static ar_Value *traceback(ar_State *S, ar_Frame *until) {
   ar_Value *res = NULL, **last = &res;
-  ar_Frame *f = S->frame;
+  ar_Frame *f = S->fiber->frame;
   while (f != until) {
     last = ar_append_tail(S, last, f->caller);
     f = f->parent;
@@ -1833,21 +1906,21 @@ void ar_error(ar_State *S, ar_Value *err) {
     /* String error? Add debug location string to start */
     if (ar_type(err) == AR_TSTRING) {
       err = join_list_of_strings(S, ar_new_list(S, 3,
-        debug_location(S, S->frame->caller),
+        debug_location(S, S->fiber->frame->caller),
         ar_new_string(S, ": "),
         err));
     }
     args = ar_new_list(S, 2, err, NULL);
   }
   /* Unwind stack, create traceback list and jump to error env if it exists */
-  f = S->frame;
+  f = S->fiber->frame;
   while (f) {
     if (f->err_env) {
       if (err != S->oom_error) {
         ar_cdr(args)->u.pair.car = traceback(S, f);
       }
       S->err_args = args;
-      while (S->frame != f) pop_frame(S, args);
+      while (S->fiber->frame != f) pop_frame(S, args);
       if (err == S->oom_error) ar_gc(S);
       longjmp(*f->err_env, -1);
     }
@@ -1856,7 +1929,7 @@ void ar_error(ar_State *S, ar_Value *err) {
   /* No error env found -- if we have a panic callback we unwind the stack and
    * call it else the error and traceback is printed */
   if (S->panic) {
-    while (S->frame != &S->base_frame) pop_frame(S, args);
+    while (S->fiber->frame != &S->base_frame) pop_frame(S, args);
     S->panic(S, args);
   } else {
     printf("error: %s\n", ar_to_string(S, err));

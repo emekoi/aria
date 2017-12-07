@@ -52,7 +52,7 @@ def main():
   starttime = time.time()
 
   # Handle args
-  build = "debug" if "debug" in sys.argv else "release"
+  build = "release" if "release" in sys.argv else "debug"
   verbose = "verbose" in sys.argv
 
   # Handle build type

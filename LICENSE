@@ -31,3 +31,9 @@ src/lib/linenoise/*
 . A small self-contained alternative to readline and libedit
 . BSD license
 . https://github.com/antirez/linenoise
+
+
+src/lib/dmt/*
+. Dynamic memory tracker for C
+. MIT license
+. https://github.com/rxi/dmt

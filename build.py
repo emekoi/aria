@@ -6,9 +6,10 @@ OUTPUT = "bin/aria"
 EMBED_DIR = "src/embed"
 TEMPSRC_DIR = ".tempsrc"
 COMPILER = "gcc"
-INCLUDE = [ TEMPSRC_DIR ]
+INCLUDE = [ TEMPSRC_DIR, "src/lib" ]
 SOURCE = [
-  "src/*.c"
+  "src/*.c",
+  "src/lib/dmt/*.c",
 ]
 FLAGS = [ "-Wall", "-Wextra", "--std=c99", "-pedantic", "-fno-strict-aliasing" ]
 LINK = [ "m" ]
@@ -34,9 +35,16 @@ if platform.system() == "Linux":
 
 
 
+# def fmt(fmt, dic):
+#   for k in dic:
+#     fmt = fmt.replace("{" + k + "}", str(dic[k]))
+#   return fmt
+
+
 def fmt(fmt, dic):
   for k in dic:
-    fmt = fmt.replace("{" + k + "}", str(dic[k]))
+    v = " ".join(dic[k]) if type(dic[k]) is list else dic[k]
+    fmt = fmt.replace("{" + k + "}", str(v))
   return fmt
 
 
@@ -46,7 +54,7 @@ def clearup():
 
 
 def main():
-  global FLAGS, SOURCE, LINK
+  global FLAGS, SOURCE, LINK, DEFINE
 
   print "initing..."
   starttime = time.time()
@@ -58,6 +66,7 @@ def main():
   # Handle build type
   if build == "debug":
     FLAGS += [ "-g" ]
+    DEFINE += [ "DEBUG" ]
   else:
     FLAGS += [ "-O3" ]
 

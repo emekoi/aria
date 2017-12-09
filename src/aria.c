@@ -7,6 +7,7 @@
 
 #include "util.h"
 #include "aria.h"
+#include "dmt/dmt.h"
 
 #define MAX_STACK 1024
 #define CHUNK_LEN 1024
@@ -40,27 +41,23 @@ struct ar_Lib {
   struct ar_Lib *next;
 };
 
-#ifdef _WIN32
 
-struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
-  { "%s/%s.dll",                                   1 },
-  { "%s/%s.lsp",                                   1 },
-  { NULL,                                          0 }
+struct { const char *path; short local; } ar_SearchPaths[] = {
+  #ifdef _WIN32
+    { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
+    { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
+    { "%s/%s.dll",                                   1 },
+    { "%s/%s.lsp",                                   1 },
+    { NULL,                                          0 }
+  #else
+    { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
+    { "/usr/local/lib/aria/" AR_VERSION "/%s.so",    0 },
+    { "%s/%s.so",                                    1 },
+    { "%s/%s.lsp",                                   1 },
+    { NULL,                                          0 }
+  #endif
 };
 
-#else
-
-struct { const char *path; uchar local; } ar_SearchPaths[] = {
-  { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
-  { "/usr/local/lib/aria/" AR_VERSION "/%s.so",    0 },
-  { "%s/%s.so",                                    1 },
-  { "%s/%s.lsp",                                   1 },
-  { NULL,                                          0 }
-};
-
-#endif
 
 void *ar_alloc(ar_State *S, void *ptr, size_t n) {
   void *p = S->alloc(S->udata, ptr, n);
@@ -483,15 +480,15 @@ ar_Value *ar_new_fiber(
 ) {
   ar_Value *v, *caller;
   /* Init fiber */
-  ar_Fiber fiber;
-  // fiber.frame = NULL;
+  ar_Fiber *fiber = ar_alloc(S, NULL, sizeof(*fiber));
+  fiber->frame = NULL;
   caller = new_value(S, AR_TFUNC);
-  caller->u.func.params = fiber.params = params;
-  caller->u.func.body = fiber.body = body;
-  caller->u.func.env = fiber.env = env;
+  caller->u.func.params = fiber->params = params;
+  caller->u.func.body = fiber->body = body;
+  caller->u.func.env = fiber->env = env;
   v = new_value(S, AR_TFIBER);
-  ar_reset_fiber(S, &fiber, caller);
-  v->u.fiber.fb = &fiber;
+  ar_reset_fiber(S, fiber, caller);
+  v->u.fiber.fb = fiber;
   return v;
 }
 
@@ -532,7 +529,7 @@ static void gc_free(ar_State *S, ar_Value *v) {
       ar_free(S, v->u.str.s);
       break;
     case AR_TFIBER:
-      // v->u.fiber.fb = NULL;
+      ar_free(S, v->u.fiber.fb);
       break;
     case AR_TUDATA:
       if (v->u.udata.gc) v->u.udata.gc(S, v);
@@ -870,7 +867,6 @@ static void push_frame(ar_State *S, ar_Frame *f, ar_Value *caller) {
 
 
 static void pop_frame(ar_State *S, ar_Value *rtn) {
-  printf("%p -> %p\n", S->fiber, S->fiber->frame);
   S->gc_stack_idx = S->fiber->frame->stack_idx;
   S->fiber->frame = S->fiber->frame->parent;
   S->fiber->frame_idx--;
@@ -1233,8 +1229,9 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 #ifdef _WIN32
 
 char *getcwd(char *buf, int len) {
-  UNUSED(buf); len = GetCurrentDirectory(0, NULL);
-  char *str = calloc(1, sizeof(char) * len);
+  UNUSED(buf); 
+  len = GetCurrentDirectory(0, NULL);
+  char *str = dmt_calloc(1, sizeof(char) * len);
   GetCurrentDirectory(len, str);
   return str;
 }
@@ -1249,13 +1246,15 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
     /* Check all search paths */
     size_t j;
     for (j = 0; ar_SearchPaths[j].path; j++) {
-      char *r, cwd[1024];
+      char *r, *cwd;
       ar_Lib *lib;
       ar_CFunc open_lib;
       /* Check for C libaries */
       char path[4096];
       if (ar_SearchPaths[j].local) {
-        sprintf(path, ar_SearchPaths[j].path, getcwd(cwd, sizeof(cwd)), skipDotSlash(res->u.str.s));
+        cwd = getcwd(cwd, sizeof(cwd));
+        sprintf(path, ar_SearchPaths[j].path, cwd, skipDotSlash(res->u.str.s));
+        dmt_free(cwd);
       } else {
         sprintf(path, ar_SearchPaths[j].path, skipDotSlash(res->u.str.s));
       }
@@ -1264,7 +1263,8 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
         /* Try to run the library's open function */
         r = concat(AR_OFN, strtok(lib->name, "."), NULL);
         open_lib = ar_lib_sym(S, lib, r);
-        open_lib(S, NULL); free(r);
+        open_lib(S, env);
+        dmt_free(r);
         found = 1;
         break;
       }
@@ -1818,17 +1818,18 @@ static void register_builtin(ar_State *S) {
 
 static void *alloc_(void *udata, void *ptr, size_t size) {
   UNUSED(udata);
-  if (ptr && size == 0) {
-    free(ptr);
+  if (size == 0) {
+    dmt_free(ptr);
     return NULL;
   }
-  return realloc(ptr, size);
+  if (ptr) return dmt_realloc(ptr, size);
+  return dmt_calloc(1, size);
 }
 
 
 ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   ar_State *volatile S;
-  ar_Fiber fiber;
+  ar_Fiber *fiber;
   if (!alloc) {
     alloc = alloc_;
   }
@@ -1838,10 +1839,13 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   S->alloc = alloc;
   S->udata = udata;
 
-  fiber.frame = &S->base_frame;
-  fiber.frame_idx = 0;
-  fiber.caller = NULL;
-  S->fiber = &fiber;
+  fiber = alloc(udata, NULL, sizeof(*fiber));
+  if (!fiber) return NULL;
+  memset(fiber, 0, sizeof(*fiber));
+  fiber->frame = &S->base_frame;
+  fiber->frame_idx = 0;
+  fiber->caller = NULL;
+  S->fiber = fiber;
   /* We use the ar_try macro in case an out-of-memory error occurs -- you
    * shouldn't usually return from inside the ar_try macro */
   ar_try(S, err, {
@@ -1874,6 +1878,7 @@ void ar_close_state(ar_State *S) {
     ar_free(S, lib);
     lib = next;
   }
+  ar_free(S, S->fiber);
   ar_free(S, S);
 }
 
@@ -1989,6 +1994,11 @@ ar_State *S;
 static void shut_down(void) {
   ar_close_state(S);
   free(line);
+  #ifdef DEBUG
+    FILE *file = fopen("memory.log", "wb");
+    dmt_dump(file);
+    fclose(file);
+  #endif
 }
 
 

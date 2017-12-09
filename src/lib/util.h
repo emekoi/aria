@@ -11,10 +11,11 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include "dmt/dmt.h"
 
 #define UNUSED(x) ((void) x)
 
-static char *concat(const char *str, ...) {
+static inline char *concat(const char *str, ...) {
   int len;
   char *res;
   va_list args;
@@ -27,7 +28,7 @@ static char *concat(const char *str, ...) {
   }
   va_end(args);
   /* Build string */
-  res = malloc(len + 1);
+  res = dmt_malloc(len + 1);
   if (!res) return NULL;
   strcpy(res, str);
   va_start(args, str);
@@ -39,7 +40,7 @@ static char *concat(const char *str, ...) {
 }
 
 
-static char *basename(const char *str) {
+static inline char *basename(const char *str) {
   char *s, *p, *file;
   s = concat("", str, NULL);
   p = s + strlen(s);
@@ -52,16 +53,17 @@ static char *basename(const char *str) {
     }
     p--;
   }
+  dmt_free(s);
   return file;
 }
 
 
-static int isSeparator(int chr) {
+static inline int isSeparator(int chr) {
   return (chr == '/' || chr == '\\');
 }
 
 
-static const char *skipDotSlash(const char *filename) {
+static inline const char *skipDotSlash(const char *filename) {
   if (filename[0] == '.' && isSeparator(filename[1])) {
     return filename + 2;
   }
@@ -69,7 +71,7 @@ static const char *skipDotSlash(const char *filename) {
 }
 
 
-static int is_alpha(char c) {
+static inline int is_alpha(char c) {
   return (c >= 'a' && c <= 'z') ||
          (c >= 'A' && c <= 'Z') ||
          (c == '_');

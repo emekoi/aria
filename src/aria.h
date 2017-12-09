@@ -27,13 +27,14 @@
 
 #define AR_VERSION "0.1.1"
 
-typedef unsigned char uchar;
 typedef struct ar_Value ar_Value;
 typedef struct ar_State ar_State;
 typedef struct ar_Chunk ar_Chunk;
 typedef struct ar_Frame ar_Frame;
 typedef struct ar_Fiber ar_Fiber;
+
 typedef struct ar_Lib ar_Lib;
+typedef struct ar_Reg ar_Reg;
 
 typedef void *(*ar_Alloc)(void *udata, void *ptr, size_t size);
 typedef ar_Value* (*ar_CFunc)(ar_State *S, ar_Value* args);
@@ -89,6 +90,12 @@ struct ar_State {
   ar_Value *gc_pool;        /* Dead (usable) Values */
   int gc_count;             /* Counts down number of new values until GC */
   ar_Lib *libs;             /* List of all loaded libraries */
+};
+
+
+struct ar_Reg {
+  const char *name;
+  ar_CFunc fn; 
 };
 
 
@@ -187,5 +194,13 @@ ar_Value *ar_do_file(ar_State *S, const char *filename);
 void ar_lib_close(ar_State *S, ar_Lib *lib);
 ar_Lib *ar_lib_load(ar_State *S, const char *path, int global);
 ar_CFunc ar_lib_sym(ar_State *S, ar_Lib *lib, const char *sym);
+
+#define ar_lib_new(S, env, reg)                 \
+  do {                                          \
+    for (int i = 0; reg[i].name; i++) {         \
+      ar_bind(S, ar_new_symbol(S, reg[i].name), \
+        ar_new_cfunc(S, reg[i].fn), env);       \
+    }                                           \
+  } while (0)
 
 #endif

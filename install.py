@@ -10,7 +10,7 @@ INSTALL = "install"
 INSTALLS = [
   ["bin/aria",   755, "/usr/local/bin"],
   ["src/aria.h", 644, "/usr/local/include/aria"],
-  ["src/util.h", 644, "usr/local/include.aria"],
+  # ["src/util.h", 644, "usr/local/include.aria"],
 ]
 
 if platform.system() == "Windows":
@@ -20,7 +20,7 @@ if platform.system() == "Windows":
   INSTALLS = [
     ["bin/aria",   755, "/c/MinGW/bin"],
     ["src/aria.h", 644, "/c/MinGW/include/aria"],
-    ["src/util.h", 644, "/c/MinGW/include/aria"],
+    # ["src/util.h", 644, "/c/MinGW/include/aria"],
   ]
 
 

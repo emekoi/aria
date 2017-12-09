@@ -42,8 +42,7 @@ typedef ar_Value* (*ar_Prim)(ar_State *S, ar_Value* args, ar_Value *env);
 
 
 struct ar_Value {
-  size_t type;
-  unsigned char mark;
+  unsigned char mark, type;
   union {
     struct { ar_Value *name; int line;            } dbg;
     struct { ar_Value *pair, *left, *right;       } map;
@@ -95,24 +94,34 @@ struct ar_State {
 
 struct ar_Reg {
   const char *name;
-  ar_CFunc fn; 
+  ar_CFunc fn;
 };
 
 
-#define AR_TNIL     ((size_t)(0 << 0))
-#define AR_TDBGINFO ((size_t)(1 << 0))
-#define AR_TMAPNODE ((size_t)(1 << 1))
-#define AR_TPAIR    ((size_t)(1 << 2))
-#define AR_TNUMBER  ((size_t)(1 << 3))
-#define AR_TSTRING  ((size_t)(1 << 4))
-#define AR_TSYMBOL  ((size_t)(1 << 5))
-#define AR_TFUNC    ((size_t)(1 << 6))
-#define AR_TMACRO   ((size_t)(1 << 7))
-#define AR_TPRIM    ((size_t)(1 << 8))
-#define AR_TCFUNC   ((size_t)(1 << 9))
-#define AR_TENV     ((size_t)(1 << 10))
-#define AR_TUDATA   ((size_t)(1 << 11))
-#define AR_TFIBER   ((size_t)(1 << 12))
+enum {
+  AR_TNIL,
+  AR_TDBGINFO,
+  AR_TMAPNODE,
+  AR_TPAIR,
+  AR_TNUMBER,
+  AR_TSTRING,
+  AR_TSYMBOL,
+  AR_TFUNC,
+  AR_TMACRO,
+  AR_TPRIM,
+  AR_TCFUNC,
+  AR_TENV,
+  AR_TUDATA,
+  AR_TFIBER,
+};
+
+
+enum {
+  AR_FSTOP,
+  AR_FIDLE,
+  AR_FDEAD,
+  AR_FRUNNING,
+};
 
 
 #define ar_get_global(S,x)    ar_eval(S, ar_new_symbol(S, x), (S)->global)

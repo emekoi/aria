@@ -24,6 +24,8 @@ struct ar_Chunk {
 
 
 struct ar_Fiber {
+  /* Current fiber status */
+  unsigned char status;
   /* Current stack frame */
   ar_Frame *frame;
   /* Current stack frame index */
@@ -42,7 +44,7 @@ struct ar_Lib {
 };
 
 
-struct { const char *path; short local; } ar_SearchPaths[] = {
+struct { const char *path; unsigned char local; } ar_SearchPaths[] = {
   #ifdef _WIN32
     { "/usr/local/share/aria/" AR_VERSION "/%s.lsp", 0 },
     { "/usr/local/lib/aria/" AR_VERSION "/%s.dll",   0 },
@@ -256,6 +258,7 @@ const char *ar_type_str(int type) {
     case AR_TCFUNC  : return "cfunction";
     case AR_TENV    : return "env";
     case AR_TUDATA  : return "udata";
+    case AR_TFIBER  : return "fiber";
   }
   return "?";
 }
@@ -481,6 +484,7 @@ ar_Value *ar_new_fiber(
   ar_Value *v, *caller;
   /* Init fiber */
   ar_Fiber *fiber = ar_alloc(S, NULL, sizeof(*fiber));
+  fiber->status = AR_FIDLE;
   fiber->frame = NULL;
   caller = new_value(S, AR_TFUNC);
   caller->u.func.params = fiber->params = params;
@@ -1152,6 +1156,25 @@ static ar_Value *p_macro(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
+static ar_Value *p_fiber(ar_State *S, ar_Value *args, ar_Value *env) {
+  ar_Value *v = ar_car(args);
+  int t = ar_type(v);
+  /* Type check */
+  if (t != AR_TPAIR && t != AR_TSYMBOL) {
+    ar_error_str(S, "expected pair or symbol, got %s", ar_type_str(t));
+  }
+  if (t == AR_TPAIR && (ar_car(v) || ar_cdr(v))) {
+    while (v) {
+      ar_check(S, ar_car(v), AR_TSYMBOL);
+      v = ar_cdr(v);
+    }
+  }
+  /* Init fiber */
+  v = ar_new_fiber(S, ar_car(args), ar_cdr(args), env);
+  return v;
+}
+
+
 static ar_Value *p_apply(ar_State *S, ar_Value *args, ar_Value *env) {
   ar_Value *fn = ar_eval(S, ar_car(args), env);
   return ar_call(S, fn, ar_eval(S, ar_nth(args, 1), env));
@@ -1715,6 +1738,7 @@ static void register_builtin(ar_State *S) {
     { "eval",     p_eval    },
     { "fn",       p_fn      },
     { "macro",    p_macro   },
+    { "fiber",    p_fiber   },
     { "apply",    p_apply   },
     { "if",       p_if      },
     { "and",      p_and     },
@@ -1769,8 +1793,8 @@ static void register_builtin(ar_State *S) {
     { "atan",     f_atan    },
     { "ceil",     f_ceil    },
     { "cos",      f_cos     },
-    { "deg",      f_deg     },
     { "exp",      f_exp     },
+    { "deg",      f_deg     },
     { "floor",    f_floor   },
     { "log",      f_log     },
     { "modf",     f_modf    },
@@ -1843,6 +1867,7 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   fiber = alloc(udata, NULL, sizeof(*fiber));
   if (!fiber) return NULL;
   memset(fiber, 0, sizeof(*fiber));
+  fiber->status = AR_FRUNNING;
   fiber->frame = &S->base_frame;
   fiber->frame_idx = 0;
   fiber->caller = NULL;

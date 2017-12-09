@@ -30,7 +30,7 @@ if platform.system() == "Darwin":
 
 if platform.system() == "Linux":
   SOURCE += [ "src/lib/linenoise/*.c" ]
-  DEFINE += [ "AR_DL_DLOPEN" ]
+  DEFINE += [ "AR_DL_DLOPEN", "DMT_STACK_TRACE" ]
   LINK += [ "dl" ]
 
 

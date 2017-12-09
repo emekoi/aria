@@ -995,7 +995,10 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     lib->name = basename(path);
     /* Open the library */
     data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
-    if (!data || data == NULL) return NULL;
+    if (!data || data == NULL) {
+      ar_free(S, lib);
+      return NULL;
+    }
     lib->data = data;
     /* Add library to library list and return it */
     lib->next = S->libs; S->libs = lib;
@@ -1229,10 +1232,9 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 #ifdef _WIN32
 
 char *getcwd(char *buf, int len) {
-  UNUSED(buf); 
   len = GetCurrentDirectory(0, NULL);
-  char *str = dmt_calloc(1, sizeof(char) * len);
-  GetCurrentDirectory(len, str);
+  // buf = dmt_calloc(1, sizeof(char) * len);
+  GetCurrentDirectory(len, buf);
   return str;
 }
 
@@ -1246,15 +1248,14 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
     /* Check all search paths */
     size_t j;
     for (j = 0; ar_SearchPaths[j].path; j++) {
-      char *r, *cwd;
+      char *r, cwd[BUFSIZ];
       ar_Lib *lib;
       ar_CFunc open_lib;
       /* Check for C libaries */
-      char path[4096];
+      char path[BUFSIZ];
       if (ar_SearchPaths[j].local) {
-        cwd = getcwd(cwd, sizeof(cwd));
+        getcwd(cwd, sizeof(cwd));
         sprintf(path, ar_SearchPaths[j].path, cwd, skipDotSlash(res->u.str.s));
-        dmt_free(cwd);
       } else {
         sprintf(path, ar_SearchPaths[j].path, skipDotSlash(res->u.str.s));
       }

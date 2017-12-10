@@ -31,7 +31,6 @@ typedef struct ar_Value ar_Value;
 typedef struct ar_State ar_State;
 typedef struct ar_Chunk ar_Chunk;
 typedef struct ar_Frame ar_Frame;
-typedef struct ar_Fiber ar_Fiber;
 
 typedef struct ar_Lib ar_Lib;
 typedef struct ar_Reg ar_Reg;
@@ -54,7 +53,6 @@ struct ar_Value {
     struct { ar_CFunc fn;                         } cfunc;
     struct { ar_Prim fn;                          } prim;
     struct { char *s; size_t len; unsigned hash;  } str;
-    struct { ar_Fiber *fb;                        } fiber;
   } u;
 };
 
@@ -72,9 +70,8 @@ struct ar_State {
   void *udata;              /* Pointer passed as allocator's udata */
   ar_Value *global;         /* Global environment */
   ar_Frame base_frame;      /* Base stack frame */
-  /* ar_Frame *frame; */          /* Current stack frame */
-  /* int frame_idx; */            /* Current stack frame index */
-  ar_Fiber *fiber;          /* Ther current running fiber */
+  ar_Frame *frame;          /* Current stack frame */
+  int frame_idx;            /* Current stack frame index */
   ar_Value *t;              /* Symbol `t` */
   ar_CFunc panic;           /* Called if an unprotected error occurs */
   ar_Value *err_args;       /* Error args passed to error handler */
@@ -89,6 +86,7 @@ struct ar_State {
   ar_Value *gc_pool;        /* Dead (usable) Values */
   int gc_count;             /* Counts down number of new values until GC */
   ar_Lib *libs;             /* List of all loaded libraries */
+  unsigned char status;     /* The current status of this state */
 };
 
 
@@ -98,31 +96,27 @@ struct ar_Reg {
 };
 
 
-enum {
-  AR_TNIL,
-  AR_TDBGINFO,
-  AR_TMAPNODE,
-  AR_TPAIR,
-  AR_TNUMBER,
-  AR_TSTRING,
-  AR_TSYMBOL,
-  AR_TFUNC,
-  AR_TMACRO,
-  AR_TPRIM,
-  AR_TCFUNC,
-  AR_TENV,
-  AR_TUDATA,
-  AR_TFIBER,
-};
+/* Types */
+#define AR_TNIL       0
+#define AR_TDBGINFO   1
+#define AR_TMAPNODE   2
+#define AR_TPAIR      3
+#define AR_TNUMBER    4
+#define AR_TSTRING    5
+#define AR_TSYMBOL    6
+#define AR_TFUNC      7
+#define AR_TMACRO     8
+#define AR_TPRIM      9
+#define AR_TCFUNC     10
+#define AR_TENV       11
+#define AR_TUDATA     12
 
+#define AR_MIN(a, b)           ((b) < (a) ? (b) : (a))
+#define AR_MAX(a, b)           ((b) > (a) ? (b) : (a))
+#define AR_CLAMP(x, a, b)      (AR_MAX(a, AR_MIN(x, b)))
 
-enum {
-  AR_FSTOP,
-  AR_FIDLE,
-  AR_FDEAD,
-  AR_FRUNNING,
-};
-
+#define ar_get_idx(S, idx)    ((ar_Value*)(S->gc_stack[(int)AR_CLAMP(idx, 0, S->gc_stack_idx)]))
+#define ar_set_idx(S, idx, v) { S->gc_stack[AR_CLAMP(idx, 0, S->gc_stack_idx)] = v }
 
 #define ar_get_global(S,x)    ar_eval(S, ar_new_symbol(S, x), (S)->global)
 #define ar_bind_global(S,x,v) ar_bind(S, ar_new_symbol(S, x), v, (S)->global)
@@ -132,18 +126,18 @@ enum {
 #define ar_check_udata(S,v)   ar_to_udata(S, ar_check(S, v, AR_TUDATA))
 #define ar_check_number(S,v)  ar_to_number(S, ar_check(S, v, AR_TNUMBER))
 
-#define ar_try(S, err_val, blk, err_blk)                         \
-  do {                                                           \
-    jmp_buf err_env__, *old_env__ = (S)->fiber->frame->err_env;  \
-    S->fiber->frame->err_env = &err_env__;                       \
-    if (setjmp(err_env__)) {                                     \
-      ar_Value *err_val = (S)->err_args;                         \
-      (S)->fiber->frame->err_env = old_env__;                    \
-      err_blk;                                                   \
-    } else {                                                     \
-      blk;                                                       \
-      (S)->fiber->frame->err_env = old_env__;                    \
-    }                                                            \
+#define ar_try(S, err_val, blk, err_blk)                  \
+  do {                                                    \
+    jmp_buf err_env__, *old_env__ = (S)->frame->err_env;  \
+    S->frame->err_env = &err_env__;                       \
+    if (setjmp(err_env__)) {                              \
+      ar_Value *err_val = (S)->err_args;                  \
+      (S)->frame->err_env = old_env__;                    \
+      err_blk;                                            \
+    } else {                                              \
+      blk;                                                \
+      (S)->frame->err_env = old_env__;                    \
+    }                                                     \
   } while (0)
 
 void *ar_alloc(ar_State *S, void *ptr, size_t n);
@@ -183,9 +177,6 @@ long double ar_to_number(ar_State *S, ar_Value *v);
 const char *ar_opt_string(ar_State *S, ar_Value *v, const char *def);
 void *ar_opt_udata(ar_State *S, ar_Value *v, void *def);
 long double ar_opt_number(ar_State *S, ar_Value *v, long double def);
-
-ar_Value *ar_new_fiber(ar_State *S, ar_Value *params, ar_Value *body, ar_Value *env);
-void ar_reset_fiber(ar_State *S, ar_Fiber *fb, ar_Value *caller);
 
 ar_Value *ar_bind(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env);
 ar_Value *ar_set(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env);

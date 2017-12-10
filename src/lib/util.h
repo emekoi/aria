@@ -15,7 +15,7 @@
 
 #define UNUSED(x) ((void) x)
 
-static inline char *concat(const char *str, ...) {
+static char *concat(const char *str, ...) {
   int len;
   char *res;
   va_list args;
@@ -40,7 +40,7 @@ static inline char *concat(const char *str, ...) {
 }
 
 
-static inline char *basename(const char *str) {
+static char *basename(const char *str) {
   char *s, *p, *file;
   s = concat("", str, NULL);
   p = s + strlen(s);
@@ -58,12 +58,12 @@ static inline char *basename(const char *str) {
 }
 
 
-static inline int isSeparator(int chr) {
+static int isSeparator(int chr) {
   return (chr == '/' || chr == '\\');
 }
 
 
-static inline const char *skipDotSlash(const char *filename) {
+static const char *skipDotSlash(const char *filename) {
   if (filename[0] == '.' && isSeparator(filename[1])) {
     return filename + 2;
   }
@@ -71,7 +71,7 @@ static inline const char *skipDotSlash(const char *filename) {
 }
 
 
-static inline int is_alpha(char c) {
+static int is_alpha(char c) {
   return (c >= 'a' && c <= 'z') ||
          (c >= 'A' && c <= 'Z') ||
          (c == '_');

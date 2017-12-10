@@ -74,5 +74,5 @@ static const ar_Reg funcs[] = {
 ar_Value *ar_open_person(ar_State *S, ar_Value* env) {
   /* register functions */
   ar_lib_new(S, env, funcs);
-	return NULL;
+  return S->t;
 }

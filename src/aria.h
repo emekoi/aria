@@ -86,7 +86,6 @@ struct ar_State {
   ar_Value *gc_pool;        /* Dead (usable) Values */
   int gc_count;             /* Counts down number of new values until GC */
   ar_Lib *libs;             /* List of all loaded libraries */
-  unsigned char status;     /* The current status of this state */
 };
 
 

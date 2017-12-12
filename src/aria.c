@@ -1065,7 +1065,6 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
     ar_bind(S, S->t, S->t, S->global);
     ar_bind_global(S, "global", S->global);
     register_builtin(S);
-    S->status = AR_OK;
   }, {
     UNUSED(err);
     ar_close_state(S);
@@ -1174,6 +1173,7 @@ void ar_error_str(ar_State *S, const char *fmt, ...) {
  *===========================================================================*/
 
 #ifdef AR_STANDALONE
+// #include "lib/commander/commander.h"
 
 char *line;
 ar_State *S;
@@ -1211,6 +1211,12 @@ static void shut_down(void) {
 #endif
 }
 
+#define HELP_TEXT \
+"Usage: aria [options]... [file [args]...].\n"\
+"options:\n"\
+"    -v  show version information\n"\
+"    --  execute stdin and stop handling options\n"
+
 
 int main(int argc, char **argv) {
   atexit(shut_down);
@@ -1244,14 +1250,39 @@ int main(int argc, char **argv) {
     ar_do_string(S, repl_lsp);
   } else {
     int i;
-    /* Store arguments at global list `argv` */
-    ar_Value *v = NULL, **last = &v;
-    for (i = 1; i < argc; i++) {
-      last = ar_append_tail(S, last, ar_new_string(S, argv[i]));
+
+    char *p = argv[1];
+
+    if (*(p++) == '-') {
+      switch (*p) {
+        case 'v': {
+          fprintf(stdout, "aria verson %s\n", AR_VERSION); return EXIT_SUCCESS;
+        }
+        case '-': {
+          ar_Value *v = NULL, **last = &v;
+          long nr = 0;
+          do {
+            char *str = calloc(BUFSIZ, sizeof(*str));
+            nr = fread(str, sizeof(char), BUFSIZ, stdin);
+            last = ar_append_tail(S, last, ar_new_string(S, str));
+            free(str - nr);
+          } while (nr ==  BUFSIZ);
+          ar_do_string(S, join_list_of_strings(S, v)->u.str.s);
+          return EXIT_SUCCESS;
+          }
+        }
+        fprintf(stdout, HELP_TEXT);
+        return EXIT_SUCCESS;
+    } else {  
+      /* Store arguments at global list `argv` */
+      ar_Value *v = NULL, **last = &v;
+      for (i = 1; i < argc; i++) {
+        last = ar_append_tail(S, last, ar_new_string(S, argv[i]));
+      }
+      ar_bind_global(S, "argv", v);
+      /* Load and do file from argv[1] */
+      ar_do_file(S, argv[1]);
     }
-    ar_bind_global(S, "argv", v);
-    /* Load and do file from argv[1] */
-    ar_do_file(S, argv[1]);
   }
   return EXIT_SUCCESS;
 }

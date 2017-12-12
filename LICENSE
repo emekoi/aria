@@ -37,3 +37,9 @@ src/lib/dmt/*
 . Dynamic memory tracker for C
 . MIT license
 . https://github.com/rxi/dmt
+
+
+src/lib/commander/*
+. Commander option parser ported to C - simple API, auto-generated --help
+. MIT license
+. https://github.com/clibs/commander

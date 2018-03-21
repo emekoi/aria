@@ -79,20 +79,15 @@
           (push res cache))
         (cdr res)))))
 
-  ; (= rand (let (seed 0)
-  ;   (fn (n)
-  ;     (= seed (mod (+ (* seed 196561) 1374) 2147483647))
-  ;     (if n (mod seed n) (/ seed 2147483647)))))
-
   (= rand (let (seed 0)
     (fn (n)
-      (= seed (mod (+ (* (* (now) seed) 196561) 1374) 2147483647))
+      (= seed (mod (+ (* seed 196561) 1374) 2147483647))
       (if n (mod seed n) (/ seed 2147483647)))))
 
   (= frand (fn (a b)
     (if (not a) (= a 0 b 1))
     (if (not b) (= b 0))
-    (+ a (* (rand) (- b a)))))
+    (+ a (* (rand (now)) (- b a)))))
 
   (= abs (fn (n)
     (if (< n 0) (- 0 n) n)))

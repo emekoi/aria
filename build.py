@@ -34,13 +34,6 @@ if platform.system() == "Linux":
   LINK += [ "dl" ]
 
 
-
-# def fmt(fmt, dic):
-#   for k in dic:
-#     fmt = fmt.replace("{" + k + "}", str(dic[k]))
-#   return fmt
-
-
 def fmt(fmt, dic):
   for k in dic:
     v = " ".join(dic[k]) if type(dic[k]) is list else dic[k]
@@ -60,7 +53,13 @@ def main():
   starttime = time.time()
 
   # Handle args
-  build = "release" if "release" in sys.argv else "unsafe" if "unsafe" in sys.argv else "debug"
+
+  if "release" in sys.argv: build = "release"
+  elif "unsafe" in sys.argv: build = "unsafe"
+  elif "size" in sys.argv: build = "size"
+  elif "release2" in sys.argv: build = "release 2"
+  else: build = "debug"
+
   verbose = "verbose" in sys.argv
 
   # Handle build type
@@ -68,6 +67,10 @@ def main():
     FLAGS += [ "-funroll-loops", "-O3", "-ftracer" ]
   elif build == "unsafe":
     FLAGS += [ "-funroll-loops", "-Ofast", "-ftracer" ]
+  elif build == "release2":
+    FLAGS += [ "-funroll-loops", "-02", "-ftracer" ]
+  elif build == "size":
+    FLAGS += [ "-funroll-loops", "-Os" ]
   else:
     FLAGS += [ "-Og", "-pg", "-g" ]
     DEFINE += [ "AR_DEBUG" ]
@@ -110,7 +113,7 @@ def main():
   print "compiling..."
   res = os.system(cmd)
 
-  if build == "release" or build == "unsafe":
+  if build != "debug":
     if os.path.isfile(OUTPUT):
       print "stripping..."
       os.system("strip %s" % OUTPUT)

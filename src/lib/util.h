@@ -12,10 +12,11 @@
 #include <stdarg.h>
 #include <string.h>
 #include "dmt/dmt.h"
+#include "../aria.h"
 
 #define UNUSED(x) ((void) x)
 
-static char *concat(const char *str, ...) {
+static char *concat(ar_State *S, const char *str, ...) {
   int len;
   char *res;
   va_list args;
@@ -28,7 +29,7 @@ static char *concat(const char *str, ...) {
   }
   va_end(args);
   /* Build string */
-  res = dmt_malloc(len + 1);
+  res = ar_alloc(S, NULL, len + 1);
   if (!res) return NULL;
   strcpy(res, str);
   va_start(args, str);
@@ -40,9 +41,9 @@ static char *concat(const char *str, ...) {
 }
 
 
-static char *baseName(const char *str) {
+static char *baseName(ar_State *S, const char *str) {
   char *s, *p, *file;
-  s = concat("", str, NULL);
+  s = concat(S, "", str, NULL);
   p = s + strlen(s);
   file = "";
   while (p != s) {
@@ -53,7 +54,7 @@ static char *baseName(const char *str) {
     }
     p--;
   }
-  dmt_free(s);
+  ar_free(S, s);
   return file;
 }
 

@@ -7,4 +7,4 @@
     (join (map capitalize (split s " ")) " ")))
 
 
-  (print (titleize (read)))) ; prints "Hello World"
+  (print (titleize (read)))); prints "Hello World"

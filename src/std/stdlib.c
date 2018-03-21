@@ -173,7 +173,7 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
       lib = ar_lib_load(S, path, 1);
       if (lib) {
         /* Try to run the library's open function */
-        r = concat(AR_OFN, strtok(lib->name, "."), NULL);
+        r = concat(S, AR_OFN, strtok(lib->name, "."), NULL);
         open_lib = ar_lib_sym(S, lib, r);
         dmt_free(r);
         if (open_lib(S, env)) {

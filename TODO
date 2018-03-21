@@ -1,0 +1,1 @@
+* add loading from any shared lib; search for a aria symbol then dynamic symbol

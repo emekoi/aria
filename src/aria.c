@@ -993,7 +993,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     }
     /* Create and name library */
     lib = ar_alloc(S, NULL, sizeof(*lib));
-    lib->name = baseName(path);
+    lib->name = baseName(S, path);
     /* Open the library */
     data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
     if (!data || data == NULL) {
@@ -1049,7 +1049,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
       l = l->next;
     }
     lib = ar_alloc(S, NULL, sizeof(*lib));
-    lib->name = baseName(path);
+    lib->name = baseName(S, path);
     /* Opening the library */
     data = LoadLibraryEx(path, NULL, AR_LLE_FLAGS);
     if (!data || data == NULL) {
@@ -1345,10 +1345,10 @@ int main(int argc, char **argv) {
           ar_Value *v = NULL, **last = &v;
           long nr = 0;
           do {
-            char *str = calloc(BUFSIZ, sizeof(*str));
+            char *str = ar_alloc(S, NULL, BUFSIZ);
             nr = fread(str, sizeof(char), BUFSIZ, stdin);
-            last = ar_append_tail(S, last, ar_new_string(S, str));
-            free(str - nr);
+            last = ar_append_tail(S, last, ar_new_stringl(S, str, nr));
+            ar_free(S, str);
           } while (nr ==  BUFSIZ);
           ar_do_string(S, join_list_of_strings(S, v)->u.str.s);
           return EXIT_SUCCESS;

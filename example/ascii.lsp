@@ -1,16 +1,16 @@
-(do 
+(do
   (= make-grid (fn (grid)
     (let (lst (join (car grid)))
       (each (fn (row) (= lst (string lst "\n"
         (join row)))) (cdr grid)) lst))
   )
 
-	(= plot (fn (series cfg) 
+	(= plot (fn (series cfg)
 
     (= _min (nth 0 series))
     (= _max (nth 0 series))
 
-    (let (i 1) (while (< i (len series)) 
+    (let (i 1) (while (< i (len series))
       (= _min (min _min (nth i series)))
       (= _max (max _max (nth i series)))
       (++ i)))
@@ -29,7 +29,7 @@
       (fn (x) (substr (string padding
         (round x .2)) (* (strlen padding) -1)))))
 
-    (let (i 0 res nil) (while (<= i rows) 
+    (let (i 0 res nil) (while (<= i rows)
       (let (j 0) (while (< j width)
         (push " " res)
         (++ j)))
@@ -65,8 +65,7 @@
 
   (= SIZE 120)
   (let (i 0) (while (< i SIZE)
-    (push (* (cos (* i (/ (* math-pi 4) SIZE))) 15) s0)
+    (push (* (cos (* i (/ (* math-pi 4) SIZE))) (frand -15 15)) s0)
     (++ i)))
   (print (plot s0 nil))
 )
-

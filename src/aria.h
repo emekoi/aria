@@ -25,7 +25,7 @@
   #include <sys/time.h>
 #endif
 
-#define AR_VERSION "0.1.1"
+#define AR_VERSION "0.1.2"
 
 typedef struct ar_Value ar_Value;
 typedef struct ar_State ar_State;

@@ -39,48 +39,52 @@ static ar_Value *f_system(ar_State *S, ar_Value *args) {
 }
 
 
-// static void *read_stream(FILE *fp, size_t *len) {
-//   size_t len_ = 0;
-//   if (!len) len = &len_;
-//   if (!fp) goto end;
-//   /* Get file size */
-//   fseek(fp, 0, SEEK_END);
-//   *len = ftell(fp);
-//   /* Load file */
-//   fseek(fp, 0, SEEK_SET);
-//   char *res = malloc(*len + 1);
-//   if (!res) return NULL;
-//   res[*len] = '\0';
-//   if (fread(res, 1, *len, fp) != *len) {
-//     free(res); return NULL;
-//   } else return res;
-//   end:
-//     return NULL;
-// }
+/* doesn't work on windows and has error on other platforms
+static void *read_stream(FILE *fp, size_t *len) {
+  size_t len_ = 0;
+  if (!len) len = &len_;
+  if (!fp) goto end;
+  / * Get file size * /
+  fseek(fp, 0, SEEK_END);
+  *len = ftell(fp);
+  / * Load file * /
+  fseek(fp, 0, SEEK_SET);
+  char *res = malloc(*len + 1);
+  if (!res) return NULL;
+  res[*len] = '\0';
+  if (fread(res, 1, *len, fp) != *len) {
+    free(res); return NULL;
+  } else return res;
+  end:
+    return NULL;
+}
+*/
 
+/*
+static ar_Value *f_popen(ar_State *S, ar_Value *args) {
+  char *command = AR_GET_STRING(0);
+  char *mode = AR_GET_STRING(1);
+  if (!(strcmp(mode, "w") == 0 || strcmp(mode, "r") == 0))
+    ar_error_str(S, "unknown mode %s", mode);
 
-// static ar_Value *f_popen(ar_State *S, ar_Value *args) {
-//   char *command = AR_GET_STRING(0);
-//   char *mode = AR_GET_STRING(1);
-//   if (!(strcmp(mode, "w") == 0 || strcmp(mode, "r") == 0))
-//     ar_error_str(S, "unknown mode %s", mode);
-//
-//   FILE *fp = popen(command, mode);
-//   if (!fp) ar_error_str(S, "could not open pipe for %s", command);
-//
-//   if (!strcmp(mode, "r")) {
-//     size_t len = 0; char *data = read_stream(stdout, &len);
-//     ar_Value *res = ar_new_string(S, data);
-//     pclose(fp);
-//     return res;
-//   } else {
-//     size_t len = 0;
-//     char *data = (char *)ar_to_stringl(S, ar_check(S, ar_nth(args, 2), AR_TSTRING), &len);
-//     int res = fwrite(data, strlen(data), 1, fp); pclose(fp);
-//     if (res == -1) ar_error_str(S, "error writing to pipe");
-//     return ar_new_number(S, res);
-//   }
-// }
+  FILE *fp = popen(command, mode);
+  if (!fp) ar_error_str(S, "could not open pipe for %s", command);
+
+  if (!strcmp(mode, "r")) {
+    size_t len = 0; char *data = read_stream(stdout, &len);
+    ar_Value *res = ar_new_string(S, data);
+    pclose(fp);
+    return res;
+  } else {
+    size_t len = 0;
+    char *data = (char *)ar_to_stringl(S, ar_check(S, ar_nth(args, 2), AR_TSTRING), &len);
+    int res = fwrite(data, strlen(data), 1, fp); pclose(fp);
+    if (res == -1) ar_error_str(S, "error writing to pipe");
+    return ar_new_number(S, res);
+  }
+}
+*/
+
 
 static char *dirname(char *str) {
   char *p = str + strlen(str);
@@ -159,7 +163,7 @@ void register_os(ar_State *S) {
   /* list of functions to register */
   struct { const char *name; ar_CFunc fn; } funcs[] = {
     { "os-system", f_system },
-    // { "os-popen",  f_popen  }, /* not working */
+    /* { "os-popen",  f_popen  }, / * not working */
     { "os-info",   f_info   },
     { NULL, NULL }
   };

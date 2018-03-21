@@ -11,7 +11,7 @@ SOURCE = [
   "src/*.c",
   "src/lib/dmt/*.c",
 ]
-FLAGS = [ "-Wall", "-Wextra", "--std=c99", "-pedantic", "-fno-strict-aliasing" ]
+FLAGS = [ "-Wall", "-Wextra", "--std=c99", "-pedantic" ]
 LINK = [ "m" ]
 DEFINE = [ "AR_STANDALONE" ]
 EXTRA = [  ]
@@ -60,15 +60,17 @@ def main():
   starttime = time.time()
 
   # Handle args
-  build = "release" if "release" in sys.argv else "debug"
+  build = "release" if "release" in sys.argv else "unsafe" if "unsafe" in sys.argv else "debug"
   verbose = "verbose" in sys.argv
 
   # Handle build type
-  if build == "debug":
-    FLAGS += [ "-g" ]
-    DEFINE += [ "DEBUG" ]
+  if build == "release":
+    FLAGS += [ "-funroll-loops", "-O3", "-ftracer" ]
+  elif build == "unsafe":
+    FLAGS += [ "-funroll-loops", "-Ofast", "-ftracer" ]
   else:
-    FLAGS += [ "-O3" ]
+    FLAGS += [ "-Og", "-pg", "-g" ]
+    DEFINE += [ "AR_DEBUG" ]
 
   print "building (" + build + ")..."
 
@@ -108,7 +110,7 @@ def main():
   print "compiling..."
   res = os.system(cmd)
 
-  if build == "release":
+  if build == "release" or build == "unsafe":
     if os.path.isfile(OUTPUT):
       print "stripping..."
       os.system("strip %s" % OUTPUT)

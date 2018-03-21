@@ -41,7 +41,8 @@ typedef ar_Value* (*ar_Prim)(ar_State *S, ar_Value* args, ar_Value *env);
 
 
 struct ar_Value {
-  unsigned char mark, type;
+  unsigned char type;
+  unsigned char mark;
   union {
     struct { ar_Value *name; int line;            } dbg;
     struct { ar_Value *pair, *left, *right;       } map;
@@ -85,6 +86,7 @@ struct ar_State {
   ar_Chunk *gc_chunks;      /* List of all chunks */
   ar_Value *gc_pool;        /* Dead (usable) Values */
   int gc_count;             /* Counts down number of new values until GC */
+  int gc_active;            /* Turns GC on or off */
   ar_Lib *libs;             /* List of all loaded libraries */
 };
 
@@ -95,20 +97,21 @@ struct ar_Reg {
 };
 
 
-/* Types */
-#define AR_TNIL       0
-#define AR_TDBGINFO   1
-#define AR_TMAPNODE   2
-#define AR_TPAIR      3
-#define AR_TNUMBER    4
-#define AR_TSTRING    5
-#define AR_TSYMBOL    6
-#define AR_TFUNC      7
-#define AR_TMACRO     8
-#define AR_TPRIM      9
-#define AR_TCFUNC     10
-#define AR_TENV       11
-#define AR_TUDATA     12
+enum {
+  AR_TNIL,
+  AR_TDBGINFO,
+  AR_TMAPNODE,
+  AR_TPAIR,
+  AR_TNUMBER,
+  AR_TSTRING,
+  AR_TSYMBOL,
+  AR_TFUNC,
+  AR_TMACRO,
+  AR_TPRIM,
+  AR_TCFUNC,
+  AR_TENV,
+  AR_TUDATA
+};
 
 #define AR_MIN(a, b)           ((b) < (a) ? (b) : (a))
 #define AR_MAX(a, b)           ((b) > (a) ? (b) : (a))
@@ -141,6 +144,8 @@ struct ar_Reg {
 
 void *ar_alloc(ar_State *S, void *ptr, size_t n);
 void ar_free(ar_State *S, void *ptr);
+void ar_gc_on(ar_State *S);
+void ar_gc_off(ar_State *S);
 
 ar_State *ar_new_state(ar_Alloc alloc, void *udata);
 void ar_close_state(ar_State *S);
@@ -166,6 +171,7 @@ ar_Value *ar_check(ar_State *S, ar_Value *v, int type);
 ar_Value *ar_car(ar_Value *v);
 ar_Value *ar_cdr(ar_Value *v);
 ar_Value *ar_nth(ar_Value *v, int idx);
+size_t ar_len(ar_Value *v);
 ar_Value **ar_append_tail(ar_State *S, ar_Value **last, ar_Value *v);
 ar_Value *ar_to_string_value(ar_State *S, ar_Value *v, int quotestr);
 
@@ -179,6 +185,7 @@ long double ar_opt_number(ar_State *S, ar_Value *v, long double def);
 
 ar_Value *ar_bind(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env);
 ar_Value *ar_set(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env);
+ar_Value *ar_get(ar_State *S, ar_Value *sym, ar_Value *env);
 
 void ar_mark(ar_State *S, ar_Value *v);
 void ar_gc(ar_State *S);

@@ -1,7 +1,7 @@
 (do
-  
+
   ; core
-  
+
   (= caar (fn (x) (car (car x))))
   (= cadr (fn (x) (car (cdr x))))
   (= cddr (fn (x) (cdr (cdr x))))
@@ -79,9 +79,14 @@
           (push res cache))
         (cdr res)))))
 
+  ; (= rand (let (seed 0)
+  ;   (fn (n)
+  ;     (= seed (mod (+ (* seed 196561) 1374) 2147483647))
+  ;     (if n (mod seed n) (/ seed 2147483647)))))
+
   (= rand (let (seed 0)
     (fn (n)
-      (= seed (mod (+ (* seed 196561) 1374) 2147483647))
+      (= seed (mod (+ (* (* (now) seed) 196561) 1374) 2147483647))
       (if n (mod seed n) (/ seed 2147483647)))))
 
   (= frand (fn (a b)
@@ -106,7 +111,7 @@
     (or (and (>= x 0) (floor (+ x .5))) (ceil (- x .5))))))
 
   (= clamp (fn (x a b)
-    (or (and (< x a) a) 
+    (or (and (< x a) a)
     (or (and (> x b) b) x))))
 
   ; loop
@@ -132,7 +137,7 @@
   (= nth (fn (n lst)
     (car (nth* n lst))))
 
-  (= set (fn (n v lst) 
+  (= set (fn (n v lst)
     (setcar (nth* n lst) v)))
 
   (= len (fn (lst)
@@ -149,11 +154,11 @@
         (= lst (cdr lst))
         (-- n))))))
 
-  (= slice (fn (a b lst) 
+  (= slice (fn (a b lst)
     (default a  0)
     (default b  (len lst))
     (if (and (>= a 0) (>= b 0))
-      (take b (nth* a lst )) 
+      (take b (nth* a lst ))
       (reverse (slice (* a -1) (* b -1) (reverse lst))))))
 
   (= reverse (fn (lst)

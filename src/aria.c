@@ -9,8 +9,8 @@
 #include "aria.h"
 #include "dmt/dmt.h"
 
-#define MAX_STACK 1024
-#define CHUNK_LEN 1024
+#define MAX_STACK 2048
+#define CHUNK_LEN 2048
 
 #define AR_POF "ar_open"
 #define AR_OFSEP "_"
@@ -57,6 +57,13 @@ void ar_free(ar_State *S, void *ptr) {
   S->alloc(S, ptr, 0);
 }
 
+void ar_gc_on(ar_State *S) {
+  S->gc_active = 1;
+}
+
+void ar_gc_off(ar_State *S) {
+  S->gc_active = 0;
+}
 
 /*===========================================================================
  * Value
@@ -277,6 +284,17 @@ ar_Value *ar_nth(ar_Value *v, int idx) {
 }
 
 
+size_t ar_len(ar_Value *v) {
+  int len = 0;
+  if (ar_type(v) != AR_TPAIR) return 0;
+  while (v) {
+    v = ar_cdr(v);
+    len++;
+  }
+  return len;
+}
+
+
 ar_Value **ar_append_tail(ar_State *S, ar_Value **last, ar_Value *v) {
   *last = ar_new_pair(S, v, NULL);
   return &(*last)->u.pair.cdr;
@@ -441,8 +459,19 @@ static int is_equal(ar_Value *v1, ar_Value *v2) {
   switch (v1type) {
     case AR_TNUMBER : return v1->u.num.n == v2->u.num.n;
     case AR_TSYMBOL :
-    case AR_TSTRING : return (v1->u.str.len == v2->u.str.len) &&
+    case AR_TSTRING : {
+      #ifdef AR_DEBUG
+      if (!((v1->u.str.len == v2->u.str.len) && !memcmp(v1->u.str.s, v2->u.str.s, v1->u.str.len))) {
+        fprintf(stderr, "is_equal() failed: %s %s\n", v1->u.str.s, v2->u.str.s);
+        exit(EXIT_FAILURE);
+      }
+      return (v1->u.str.len == v2->u.str.len) &&
                              !memcmp(v1->u.str.s, v2->u.str.s, v1->u.str.len);
+      #else
+      /* this seems to always work */
+      return 1;
+      #endif
+    }
   }
   return 0;
 }
@@ -537,8 +566,10 @@ begin:
 void ar_gc(ar_State *S) {
   int i, count;
   ar_Chunk *c;
+  if (!S->gc_active) goto skip_gc;
   /* Mark roots */
-  for (i = 0; i < S->gc_stack_idx; i++) ar_mark(S, S->gc_stack[i]);
+  i = S->gc_stack_idx;
+  while (i--) ar_mark(S, S->gc_stack[i]);
   ar_mark(S, S->global);
   ar_mark(S, S->oom_error);
   ar_mark(S, S->oom_args);
@@ -547,7 +578,8 @@ void ar_gc(ar_State *S) {
   count = 0;
   c = S->gc_chunks;
   while (c) {
-    for (i = 0; i < CHUNK_LEN; i++) {
+    i = CHUNK_LEN;
+    while (i--) {
       if (c->values[i].type != AR_TNIL) {
         if (!c->values[i].mark) {
           gc_free(S, c->values + i);
@@ -561,6 +593,7 @@ void ar_gc(ar_State *S) {
   }
   /* Reset gc counter */
   S->gc_count = count;
+  skip_gc: UNUSED(NULL);
 }
 
 
@@ -617,12 +650,17 @@ ar_Value *ar_bind(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env) {
 
 
 ar_Value *ar_set(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env) {
-  for (;;) {
+  while (1) {
     ar_Value *x = *get_map_ref(&env->u.env.map, sym);
     if (x) return x->u.map.pair->u.pair.cdr = v;
     if (!env->u.env.parent) return ar_bind(S, sym, v, env);
     env = env->u.env.parent;
   }
+}
+
+ar_Value *ar_get(ar_State *S, ar_Value *sym, ar_Value *env) {
+  UNUSED(S);
+  return sym ? get_bound_value(sym, env) : NULL;
 }
 
 
@@ -636,7 +674,7 @@ ar_Value *ar_set(ar_State *S, ar_Value *sym, ar_Value *v, ar_Value *env) {
 static ar_Value parse_end;
 
 static ar_Value *parse(ar_State *S, const char **str) {
-  ar_Value *res, **last, *v;
+  ar_Value *res, **last, *v, *key;
   char buf[512];
   size_t i;
   char *q;
@@ -722,6 +760,23 @@ static ar_Value *parse(ar_State *S, const char **str) {
         *q++ = *p++;
       }
       *str = p;
+      break;
+
+    case '{':
+      res = ar_new_env(S, NULL);
+      *str = p + 1;
+      while ((v = parse(S, str)) != &parse_end) {
+        v = ar_eval(S, v, S->global);
+        key = ar_new_symbol(S, ar_to_string(S, v));
+        if ((v = parse(S, str)) != &parse_end) {
+          ar_bind(S, key, ar_eval(S, v, S->global), res);
+        }
+      }
+      return res;
+
+    case '}':
+      *str = p + 1;
+      res = NULL;
       break;
 
     default:
@@ -813,11 +868,23 @@ static void pop_frame(ar_State *S, ar_Value *rtn) {
 static ar_Value *raw_call(
   ar_State *S, ar_Value *caller, ar_Value *fn, ar_Value *args, ar_Value *env
 ) {
-  ar_Value *e, *res;
   ar_Frame frame;
+  ar_Value *e, *res = NULL;
+  const char *sym = "";
+
   push_frame(S, &frame, caller);
 
   switch (ar_type(fn)) {
+    case AR_TENV:
+      e = fn;
+      sym = ar_to_string(S, ar_eval(S, ar_car(args), S->global));
+      if (ar_len(args) == 1) {
+        res = ar_get(S, ar_new_symbol(S, sym), e);
+      } else {
+        res = ar_set(S, ar_new_symbol(S, sym), ar_cdr(args), e);
+      }
+      break;
+
     case AR_TCFUNC:
       res = fn->u.cfunc.fn(S, args);
       break;
@@ -926,7 +993,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
     }
     /* Create and name library */
     lib = ar_alloc(S, NULL, sizeof(*lib));
-    lib->name = basename(path);
+    lib->name = baseName(path);
     /* Open the library */
     data = dlopen(path, RTLD_NOW | (global ? RTLD_GLOBAL : RTLD_LOCAL));
     if (!data || data == NULL) {
@@ -982,7 +1049,7 @@ ar_Value *ar_do_file(ar_State *S, const char *filename) {
       l = l->next;
     }
     lib = ar_alloc(S, NULL, sizeof(*lib));
-    lib->name = basename(path);
+    lib->name = baseName(path);
     /* Opening the library */
     data = LoadLibraryEx(path, NULL, AR_LLE_FLAGS);
     if (!data || data == NULL) {
@@ -1041,10 +1108,14 @@ static void *alloc_(void *udata, void *ptr, size_t size) {
 }
 
 
-#include "builtin.h"
+#include "std/stdlib.c"
+#include "std/math.c"
+#include "std/io.c"
+#include "std/os.c"
 
 ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   ar_State *volatile S;
+  int i;
   if (!alloc) {
     alloc = alloc_;
   }
@@ -1053,7 +1124,8 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
   memset(S, 0, sizeof(*S));
   S->alloc = alloc;
   S->udata = udata;
-  S->frame = &S->base_frame;  
+  S->frame = &S->base_frame;
+  S->gc_active = 1;
   /* We use the ar_try macro in case an out-of-memory error occurs -- you
    * shouldn't usually return from inside the ar_try macro */
   ar_try(S, err, {
@@ -1063,13 +1135,29 @@ ar_State *ar_new_state(ar_Alloc alloc, void *udata) {
     S->oom_args = ar_new_pair(S, S->oom_error, NULL);
     S->t = ar_new_symbol(S, "t");
     ar_bind(S, S->t, S->t, S->global);
-    ar_bind_global(S, "global", S->global);
-    register_builtin(S);
+    ar_bind_global(S, "GLOBAL", S->global);
+    /* Load the standard library */
+    register_stdlib(S);
+    register_math(S);
+    register_os(S);
+    register_io(S);
   }, {
     UNUSED(err);
     ar_close_state(S);
     return NULL;
   });
+  /* Embed standard library */
+  #include "core_lsp.h"
+  #include "class_lsp.h"
+
+  struct { const char *name, *data; } items[] = {
+    { "core.lsp",  core_lsp  },
+    { "class.lsp", class_lsp },
+    { NULL, NULL }
+  };
+  for (i = 0; items[i].name; i++) {
+    ar_eval(S, ar_parse(S, items[i].data, items[i].name), S->global);
+  }
   return S;
 }
 
@@ -1143,12 +1231,12 @@ void ar_error(ar_State *S, ar_Value *err) {
     while (S->frame != &S->base_frame) pop_frame(S, args);
     S->panic(S, args);
   } else {
-    printf("error: %s\n", ar_to_string(S, err));
+    fprintf(stderr, "error: %s\n", ar_to_string(S, err));
     if (err != S->oom_error) {
       ar_Value *v = traceback(S, &S->base_frame);
-      printf("traceback:\n");
+      fprintf(stderr, "traceback:\n");
       while (v) {
-        printf("  [%s] %.50s\n", ar_to_string(S, debug_location(S, ar_car(v))),
+        fprintf(stderr, "  [%s] %.50s\n", ar_to_string(S, debug_location(S, ar_car(v))),
                                  ar_to_string(S, ar_car(v)));
         v = ar_cdr(v);
       }
@@ -1173,7 +1261,6 @@ void ar_error_str(ar_State *S, const char *fmt, ...) {
  *===========================================================================*/
 
 #ifdef AR_STANDALONE
-// #include "lib/commander/commander.h"
 
 char *line;
 ar_State *S;
@@ -1192,7 +1279,7 @@ static ar_Value *f_readline(ar_State *S, ar_Value *args) {
 static ar_Value *f_readline(ar_State *S, ar_Value *args) {
   char buf[4096];
   UNUSED(args);
-  printf("> ");
+  fprintf(stdout, "> ");
   return ar_new_string(S, fgets(buf, sizeof(buf) - 1, stdin));
 }
 #endif
@@ -1202,7 +1289,7 @@ static void shut_down(void) {
   FILE *file;
   ar_close_state(S);
   free(line);
-#ifdef DEBUG
+#ifdef AR_DEBUG
   file = fopen("memory.log", "wb");
   dmt_dump(file);
   fclose(file);
@@ -1211,18 +1298,26 @@ static void shut_down(void) {
 #endif
 }
 
+#ifdef AR_DEBUG
 #define HELP_TEXT \
+"ARIA DEBUG BUILD\n"\
 "Usage: aria [options]... [file [args]...].\n"\
 "options:\n"\
 "    -v  show version information\n"\
 "    --  execute stdin and stop handling options\n"
-
+#else
+#define HELP_TEXT \
+"Usage: aria [options]... [file [args]...]\n"\
+"options:\n"\
+"    -v  show version information\n"\
+"    --  execute stdin and stop handling options\n"
+#endif
 
 int main(int argc, char **argv) {
   atexit(shut_down);
   S = ar_new_state(NULL, NULL);
   if (!S) {
-    printf("out of memory\n");
+    fprintf(stderr, "out of memory\n");
     return EXIT_FAILURE;
   }
   /* Enable single line buffering for Windows */
@@ -1230,19 +1325,7 @@ int main(int argc, char **argv) {
   setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 #endif
 
-  /* Embed standard library */
-  #include "core_lsp.h"
-  #include "class_lsp.h"
 
-  struct { const char *name, *data; } items[] = {
-    { "core.lsp",  core_lsp  },
-    { "class.lsp", class_lsp },
-    { NULL, NULL }
-  };
-  int i;
-  for (i = 0; items[i].name; i++) {
-    ar_eval(S, ar_parse(S, items[i].data, items[i].name), S->global);
-  }
   if (argc < 2) {
     /* Init REPL */
     ar_bind_global(S, "readline", ar_new_cfunc(S, f_readline));
@@ -1273,7 +1356,7 @@ int main(int argc, char **argv) {
         }
         fprintf(stdout, HELP_TEXT);
         return EXIT_SUCCESS;
-    } else {  
+    } else {
       /* Store arguments at global list `argv` */
       ar_Value *v = NULL, **last = &v;
       for (i = 1; i < argc; i++) {

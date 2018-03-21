@@ -1,9 +1,13 @@
 (do
+  ; turns of the gc
+  ; (gc nil)
   (= monte (fn (n)
   	(= inside 0)
   	(= counter 0)
   	(while (< counter n)
-  	  (if (<= (+ (pow (frand) 2) (pow (frand) 2)) 1) (++ inside))
+  	  (if (<= (+ (pow (frand) 2)
+        (pow (frand) 2)) 1)
+        (++ inside))
   	  (++ counter))
   	(/ (* 4 inside) n)))
 

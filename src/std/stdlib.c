@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2017 emekoi
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See LICENSE for details.
+ */
+
 /*===========================================================================
  * Built-in primitives and funcs
  *===========================================================================*/
@@ -138,7 +145,7 @@ static ar_Value *p_pcall(ar_State *S, ar_Value *args, ar_Value *env) {
 }
 
 
-/* I not needed on MinGW. I don't know about MSCV.
+/* I don't need this on MinGW. I don't know about MSCV.
 #if defined(_WIN32)
 static inline char *getcwd(char *buf, int len) {
   GetCurrentDirectory(len, buf);
@@ -174,7 +181,7 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
         } else {
             ar_error_str(S, "error loading module '%s' from '%s'", skip, path);
         }
-        
+
         break;
       }
       /* Check for aria libraries */
@@ -194,7 +201,15 @@ static ar_Value *p_import(ar_State *S, ar_Value *args, ar_Value *env) {
 
 
 static ar_Value *f_gc(ar_State *S, ar_Value *args) {
-  UNUSED(args); ar_gc(S);
+  if (args) {
+    if (ar_car(args)) {
+      S->gc_active = 1;
+    } else {
+      S->gc_active = 0;
+    }
+  } else {
+    ar_gc(S);
+  }
   return NULL;
 }
 
@@ -464,115 +479,6 @@ static ar_Value *f_is(ar_State *S, ar_Value *args) {
 }
 
 
-#undef PI
-#define PI (3.141592653589793238462643383279502884)
-
-
-#define NUM_COMPARE_FUNC(NAME, OP)                                \
-  static ar_Value *NAME(ar_State *S, ar_Value *args) {            \
-    return ( ar_check_number(S, ar_car(args)) OP                  \
-             ar_check_number(S, ar_nth(args, 1)) ) ? S->t : NULL; \
-  }
-
-NUM_COMPARE_FUNC( f_lt,  <  )
-NUM_COMPARE_FUNC( f_gt,  >  )
-NUM_COMPARE_FUNC( f_lte, <= )
-NUM_COMPARE_FUNC( f_gte, >= )
-
-
-#define NUM_ARITH_FUNC(NAME, OP)                        \
-  static ar_Value *NAME(ar_State *S, ar_Value *args) {  \
-    long double res = ar_check_number(S, ar_car(args));      \
-    while ( (args = ar_cdr(args)) ) {                   \
-      res = res OP ar_check_number(S, ar_car(args));    \
-    }                                                   \
-    return ar_new_number(S, res);                       \
-  }
-
-NUM_ARITH_FUNC( f_add, + )
-NUM_ARITH_FUNC( f_sub, - )
-NUM_ARITH_FUNC( f_mul, * )
-NUM_ARITH_FUNC( f_div, / )
-
-
-static ar_Value *f_mod(ar_State *S, ar_Value *args) {
-  long double a = ar_check_number(S, ar_nth(args, 0));
-  long double b = ar_check_number(S, ar_nth(args, 1));
-  if (b == 0.) ar_error_str(S, "expected a non-zero divisor");
-  return ar_new_number(S, fmod(a, b));
-}
-
-#define NUM_MATH_FUNC1(NAME, func)                      \
-  static ar_Value *NAME(ar_State *S, ar_Value *args) {  \
-    return ar_new_number(S, func(ar_check_number(S,     \
-      ar_nth(args, 0))));                               \
-  }
-
-#define NUM_MATH_FUNC2(NAME, func)                      \
-  static ar_Value *NAME(ar_State *S, ar_Value *args) {  \
-    return ar_new_number(S, func(ar_check_number(S,     \
-      ar_nth(args, 0)), ar_check_number(S,              \
-      ar_nth(args, 1))));                               \
-  }
-
-
-NUM_MATH_FUNC1(f_acos, acos)
-NUM_MATH_FUNC1(f_asin, asin)
-NUM_MATH_FUNC1(f_ceil, ceil)
-NUM_MATH_FUNC1(f_cos, cos)
-NUM_MATH_FUNC1(f_exp, exp)
-NUM_MATH_FUNC1(f_floor, floor)
-NUM_MATH_FUNC1(f_sin, sin)
-NUM_MATH_FUNC1(f_sqrt, sqrt)
-NUM_MATH_FUNC1(f_tan, tan)
-NUM_MATH_FUNC2(f_pow, pow)
-
-
-static ar_Value *f_atan(ar_State *S, ar_Value *args) {
-  long double a, b;
-  a = ar_check_number(S, ar_nth(args, 0));
-  b = ar_nth(args, 1) ? ar_check_number(S, ar_nth(args, 1)) : 1;
-  if (b == 0.0) ar_error_str(S, "expected a non-zero divisor");
-  return ar_new_number(S, atan2(a, b));
-}
-
-
-static ar_Value *f_deg(ar_State *S, ar_Value *args) {
-  long double a;
-  a = ar_check_number(S, ar_nth(args, 0));
-  return ar_new_number(S, a * (180.0 / PI));
-}
-
-
-static ar_Value *f_rad(ar_State *S, ar_Value *args) {
-  long double a;
-  a = ar_check_number(S, ar_nth(args, 0));
-  return ar_new_number(S, a * (PI / 180.0));
-}
-
-
-static ar_Value *f_modf(ar_State *S, ar_Value *args) {
-  int b;
-  long double a;
-  a = ar_check_number(S, ar_nth(args, 0)); b = a;
-  return ar_new_list(S, 2, ar_new_number(S, b), ar_new_number(S, a - b));
-}
-
-
-static ar_Value *f_log(ar_State *S, ar_Value *args) {
-  long double a, b, res;
-  a = ar_check_number(S, ar_nth(args, 0));
-  if (!ar_nth(args, 1))
-    res = log(a);
-  else {
-    b = ar_check_number(S, ar_nth(args, 1));
-    if (b == 10.0) res = log10(a);
-    else res = log(a) / log(b);
-  }
-  return ar_new_number(S, res);
-}
-
-
 static ar_Value *f_now(ar_State *S, ar_Value *args) {
   long double t;
   #ifdef _WIN32
@@ -613,14 +519,25 @@ static ar_Value *f_exit(ar_State *S, ar_Value *args) {
 }
 
 
-static ar_Value *f_foo(ar_State *S, ar_Value *args) {
-  int n;
-  n = ar_to_number(S, ar_nth(args, 0));
-  return ar_get_idx(S, n);
+static ar_Value** pairs(ar_State *S, ar_Value *node, ar_Value **stack) {
+  if (node) {
+    stack = ar_append_tail(S, stack, node->u.map.pair);
+    stack = pairs(S, node->u.map.left, stack);
+    stack = pairs(S, node->u.map.right, stack);
+  }
+  return stack;
 }
 
 
-static void register_builtin(ar_State *S) {
+static ar_Value *f_pairs(ar_State *S, ar_Value *args) {
+  ar_Value *env = ar_check(S, ar_nth(args, 0), AR_TENV)->u.env.map;
+  ar_Value *res = NULL;
+  pairs(S, env, &res);
+  return res;
+}
+
+
+void register_stdlib(ar_State *S) {
   int i;
   /* Primitives */
   struct { const char *name; ar_Prim fn; } prims[] = {
@@ -669,49 +586,17 @@ static void register_builtin(ar_State *S) {
     { "loads",    f_loads   },
     { "dumps",    f_dumps   },
     { "is",       f_is      },
-    { "<",        f_lt      },
-    { ">",        f_gt      },
-    { "<=",       f_lte     },
-    { ">=",       f_gte     },
-    { "+",        f_add     },
-    { "-",        f_sub     },
-    { "*",        f_mul     },
-    { "/",        f_div     },
-    { "pow*",     f_pow     },
-    { "mod",      f_mod     },
-    { "acos",     f_acos    },
-    { "asin",     f_asin    },
-    { "atan",     f_atan    },
-    { "ceil",     f_ceil    },
-    { "cos",      f_cos     },
-    { "exp",      f_exp     },
-    { "deg",      f_deg     },
-    { "floor",    f_floor   },
-    { "log",      f_log     },
-    { "modf",     f_modf    },
-    { "rad",      f_rad     },
-    { "sin",      f_sin     },
-    { "sqrt",     f_sqrt    },
-    { "tan",      f_tan     },
     { "now",      f_now     },
     { "clock",    f_clock   },
     { "sleep",    f_sleep   },
     { "exit",     f_exit    },
-    { "foo",      f_foo     },
+    { "pairs",    f_pairs   },
     { NULL,       NULL      }
   };
-  /* String Globals */
-  struct { const char *name; void *val; } str_globals[] = {
+  /* String Constants */
+  struct { const char *name; void *val; } str_constants[] = {
     { "VERSION", AR_VERSION },
     { NULL,      NULL       }
-  };
-  /* Math Globals */
-  struct { const char *name; double val; } num_globals[] = {
-    { "math-huge",  HUGE_VAL  },
-    { "-math-huge", -HUGE_VAL },
-    { "math-pi",    PI        },
-    { "-math-pi",   -PI       },
-    { NULL,         0         }
   };
   /* Register */
   for (i = 0; prims[i].name; i++) {
@@ -720,10 +605,7 @@ static void register_builtin(ar_State *S) {
   for (i = 0; funcs[i].name; i++) {
     ar_bind_global(S, funcs[i].name, ar_new_cfunc(S, funcs[i].fn));
   }
-  for (i = 0; str_globals[i].name; i++) {
-    ar_bind_global(S, str_globals[i].name, ar_new_string(S, str_globals[i].val));
-  }
-  for (i = 0; num_globals[i].name; i++) {
-    ar_bind_global(S, num_globals[i].name, ar_new_number(S, num_globals[i].val));
+  for (i = 0; str_constants[i].name; i++) {
+    ar_bind_global(S, str_constants[i].name, ar_new_string(S, str_constants[i].val));
   }
 }
